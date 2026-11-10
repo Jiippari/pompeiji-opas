@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#7d2619">
+<meta name="description" content="Suomenkielinen opas Pompeijin kaivausalueelle – toimii ilman nettiä.">
+<title>Pompeiji-opas</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="lib/leaflet/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="ylapalkki">
+  <button id="takaisin" class="ikoninappi" aria-label="Takaisin" hidden>
+    <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+  <h1 id="otsikko">Pompeiji</h1>
+</header>
+
+<main id="sisalto">
+  <!-- Kartta -->
+  <section id="nakyma-kartta" class="nakyma" hidden>
+    <div id="kartta" aria-label="Kartta"></div>
+    <button id="lahin" class="lahin" hidden></button>
+    <div class="karttanapit">
+      <button id="nappi-palvelut" class="karttanappi" aria-label="Näytä vessat ja vesipisteet" title="Vessat ja vesi">
+        <svg viewBox="0 0 24 24"><path d="M12 3c3 4 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-7 6-11z"/></svg>
+      </button>
+      <button id="nappi-sijainti" class="karttanappi" aria-label="Näytä sijaintini" title="Sijaintini">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+      </button>
+    </div>
+    <div id="reittipalkki" class="reittipalkki" hidden>
+      <button id="reitti-edel" class="ikoninappi" aria-label="Edellinen kohde"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <button id="reitti-nyt" class="reitti-nyt"></button>
+      <button id="reitti-seur" class="ikoninappi" aria-label="Seuraava kohde"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+      <button id="reitti-lopeta" class="ikoninappi pieni" aria-label="Lopeta reitti"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+  </section>
+
+  <!-- Kohdelista -->
+  <section id="nakyma-kohteet" class="nakyma vierittyva" hidden>
+    <div class="hakurivi">
+      <input id="hakukentta" type="search" autocomplete="off" placeholder="Hae nimellä tai numerolla (VI 12 2)" aria-label="Hae kohteita">
+    </div>
+    <div id="suodattimet" class="suodattimet"></div>
+    <div id="kohdelista"></div>
+  </section>
+
+  <!-- Yksittäinen kohde -->
+  <section id="nakyma-kohde" class="nakyma vierittyva" hidden></section>
+
+  <!-- Reitit -->
+  <section id="nakyma-reitit" class="nakyma vierittyva" hidden></section>
+
+  <!-- Tietoa -->
+  <section id="nakyma-tietoa" class="nakyma vierittyva" hidden></section>
+
+  <!-- Taustaa-artikkeli -->
+  <section id="nakyma-artikkeli" class="nakyma vierittyva" hidden></section>
+</main>
+
+<div id="arkki" class="arkki" hidden>
+  <button id="arkki-sulje" class="arkki-sulje" aria-label="Sulje">
+    <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+  <div id="arkki-sisalto"></div>
+</div>
+
+<div id="puhepalkki" class="puhepalkki" hidden>
+  <svg class="puhe-ikoni" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
+  <span id="puhe-otsikko" class="puhe-otsikko"></span>
+  <button id="puhe-tauko" class="ikoninappi" aria-label="Tauko"></button>
+  <button id="puhe-lopeta" class="ikoninappi" aria-label="Lopeta"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>
+</div>
+
+<div id="ilmoitus" class="ilmoitus" hidden></div>
+
+<nav id="alapalkki">
+  <a href="#kartta" data-v="kartta">
+    <svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>
+    <span>Kartta</span>
+  </a>
+  <a href="#kohteet" data-v="kohteet">
+    <svg viewBox="0 0 24 24"><path d="M4 21V9l8-5 8 5v12"/><path d="M7 21v-8M12 21v-8M17 21v-8M3 21h18"/></svg>
+    <span>Kohteet</span>
+  </a>
+  <a href="#reitit" data-v="reitit">
+    <svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"/></svg>
+    <span>Reitit</span>
+  </a>
+  <a href="#tietoa" data-v="tietoa">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+    <span>Tietoa</span>
+  </a>
+</nav>
+
+<script src="lib/leaflet/leaflet.js"></script>
+<script src="data/kartta.js"></script>
+<script src="data/kohteet-1.js"></script>
+<script src="data/kohteet-2.js"></script>
+<script src="data/kohteet-3.js"></script>
+<script src="data/reitit.js"></script>
+<script src="data/tietoa.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
