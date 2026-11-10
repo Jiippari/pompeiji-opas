@@ -1,7 +1,7 @@
 /* Pompeiji-opas — service worker: tallentaa koko oppaan puhelimeen, jotta se toimii ilman nettiä.
  * Nosta VERSIO (sama kuin app.js:ssä) aina kun julkaiset muutoksia — muuten puhelimet
  * jatkavat vanhan version käyttöä. */
-const VERSIO = '2026-11-10.4';
+const VERSIO = '2026-11-10.5';
 const VALIMUISTI = 'pompeiji-' + VERSIO;
 const TIEDOSTOT = [
   './',
@@ -23,8 +23,12 @@ const TIEDOSTOT = [
   'icons/maskable-512.png',
 ];
 
+// cache: 'reload' ohittaa selaimen HTTP-välimuistin. Ilman sitä uusi versio voisi tallentaa
+// vanhoja tiedostoja, koska GitHub Pages sallii niiden välimuistituksen 10 minuutiksi.
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VALIMUISTI).then(c => c.addAll(TIEDOSTOT)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VALIMUISTI)
+    .then(c => c.addAll(TIEDOSTOT.map(u => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {

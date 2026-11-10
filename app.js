@@ -4,7 +4,7 @@
  * Muista nostaa VERSIO sekä täällä että sw.js:ssä, kun julkaiset muutoksia. */
 'use strict';
 (() => {
-const VERSIO = '2026-11-10.4';
+const VERSIO = '2026-11-10.5';
 
 const KARTTA = window.KARTTA;
 const KOHTEET = window.KOHTEET || [];
