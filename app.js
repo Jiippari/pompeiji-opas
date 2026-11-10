@@ -4,7 +4,7 @@
  * Muista nostaa VERSIO sekä täällä että sw.js:ssä, kun julkaiset muutoksia. */
 'use strict';
 (() => {
-const VERSIO = '2026-11-10.3';
+const VERSIO = '2026-11-10.4';
 
 const KARTTA = window.KARTTA;
 const KOHTEET = window.KOHTEET || [];
@@ -982,8 +982,10 @@ async function tarkistaOffline() {
     el.className = 'kortti offline odota'; el.textContent = 'Tämä selain ei pysty tallentamaan opasta ilman nettiä käytettäväksi.'; return;
   }
   try {
-    const c = await caches.open('pompeiji-' + VERSIO);
-    const ok = await c.match('data/kartta.js') && await c.match('app.js') && await c.match('data/kohteet-3.js');
+    // caches.has ensin: caches.open loisi tyhjän välimuistin, jota service worker ei enää siivoaisi
+    const nimi = 'pompeiji-' + VERSIO;
+    const c = await caches.has(nimi) ? await caches.open(nimi) : null;
+    const ok = c && await c.match('data/kartta.js') && await c.match('app.js') && await c.match('data/kohteet-3.js');
     el.className = 'kortti offline ' + (ok ? 'ok' : 'odota');
     el.textContent = ok ? '✓ Opas on tallennettu puhelimeen ja toimii myös ilman nettiä.'
       : '⏳ Opasta tallennetaan puhelimeen… Pidä netti päällä, kunnes tähän tulee vihreä merkki.';
