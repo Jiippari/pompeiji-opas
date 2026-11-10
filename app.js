@@ -4,7 +4,7 @@
  * Muista nostaa VERSIO sekä täällä että sw.js:ssä, kun julkaiset muutoksia. */
 'use strict';
 (() => {
-const VERSIO = '2026-11-10.2';
+const VERSIO = '2026-11-10.3';
 
 const KARTTA = window.KARTTA;
 const KOHTEET = window.KOHTEET || [];
@@ -1051,7 +1051,19 @@ $('#puhe-lopeta').addEventListener('click', () => { Aani.lopeta(true); Puhe.lope
 const kehitys = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && !/[?&]sw\b/.test(location.search);
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   if (kehitys) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
-  else navigator.serviceWorker.register('sw.js').catch(() => { /* esim. yksityinen tila */ });
+  else {
+    // Kun uusi versio on haettu, sivu ladataan heti uudelleen (ei toisella avauskerralla).
+    // Ei kesken toiston eikä ensiasennuksessa (silloin ohjaajaa ei vielä ollut).
+    const oliOhjaaja = !!navigator.serviceWorker.controller;
+    let paivitetty = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!oliOhjaaja || paivitetty) return;
+      paivitetty = true;
+      if (aktiivinenToisto()) ilmoita('Oppaasta on uusi versio – se otetaan käyttöön, kun avaat oppaan seuraavan kerran.', 5000);
+      else location.reload();
+    });
+    navigator.serviceWorker.register('sw.js').catch(() => { /* esim. yksityinen tila */ });
+  }
 }
 Puhe.init();
 piirraSuodattimet();
