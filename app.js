@@ -4,7 +4,7 @@
  * Muista nostaa VERSIO sekä täällä että sw.js:ssä, kun julkaiset muutoksia. */
 'use strict';
 (() => {
-const VERSIO = '2026-11-10.1';
+const VERSIO = '2026-11-10.2';
 
 const KARTTA = window.KARTTA;
 const KOHTEET = window.KOHTEET || [];
@@ -112,10 +112,12 @@ const LYHENTEET = [
   [/\bklo\b/g, 'kello'], [/\bm²/g, 'neliömetriä'], [/(\d) ?€/g, '$1 euroa'],
   [/(\d)\s?–\s?(\d)/g, '$1 – $2'],
 ];
+const LYHENNESANAT = new Set(['DNA', 'PDF', 'WC']);
 function puheeksi(teksti) {
   let s = String(teksti || '');
   for (const [re, kor] of LYHENTEET) s = s.replace(re, kor);
-  return s;
+  // Isoilla kirjaimilla kirjoitetut latinan sanat (HAVE, SALVE LUCRU) sanoina, ei kirjaimittain
+  return s.replace(/\b([A-ZÄÖ]{3,})\b/g, (m, w) => (LYHENNESANAT.has(w) ? w : w[0] + w.slice(1).toLowerCase()));
 }
 function pilkoLauseiksi(kappaleet) {
   const ulos = [];
@@ -155,7 +157,7 @@ const Puhe = {
     this.jono = pilkoLauseiksi(kappaleet); this.indeksi = 0;
     this.kaynnissa = true; this.tauolla = false;
     if (!this.suomi().length && !S.get('aaniVaroitettu', false)) {
-      ilmoita('Puhelimesta ei löytynyt suomenkielistä puheääntä. Ohje: Tietoa → Ääneen luku.', 6000);
+      ilmoita('Puhelimesta ei löytynyt suomenkielistä puheääntä. Lataa ääniopastus: Tietoa → Ääniopastus.', 6000);
       S.set('aaniVaroitettu', true);
     }
     this.seuraava(); paivitaPuhepalkki();
@@ -184,23 +186,102 @@ const Puhe = {
     if (!hiljaa) paivitaPuhepalkki();
   },
 };
+// ------------------------------------------------------------- valmiit äänitiedostot (ääniopastus)
+// Tekstit on luettu etukäteen neuroäänellä (tools/tee_aanet.py). Tiedostot ladataan omaan
+// välimuistiinsa, joka säilyy oppaan versiopäivitysten yli. Ilman latausta ääni soi netistä,
+// ja ilman nettiä käytetään puhelimen omaa puheääntä.
+const AANET = window.AANET || null;
+const AANIVARASTO = 'opas-aanet';
+const Aani = {
+  el: new Audio(), id: null, otsikko: '', blobUrl: null,
+  get kaynnissa() { return this.id !== null; },
+  get tauolla() { return this.id !== null && this.el.paused; },
+  onko(id) { return !!(AANET && AANET.tiedostot[id]) && S.get('aaniopas', true); },
+  async soita(id, otsikko) {
+    this.lopeta(true); Puhe.lopeta(true);
+    const url = new URL(AANET.tiedostot[id].f, location.href).href;
+    let lahde = null;
+    try {
+      const r = 'caches' in window ? await caches.match(url) : null;
+      if (r) { this.blobUrl = URL.createObjectURL(await r.blob()); lahde = this.blobUrl; }
+    } catch { /* välimuisti ei käytettävissä */ }
+    if (!lahde) {
+      if (!navigator.onLine) return false;   // ei ladattu eikä verkkoa → puhelimen puheääni
+      lahde = url;                            // soitetaan suoraan netistä
+    }
+    this.id = id; this.otsikko = otsikko;
+    this.el.src = lahde;
+    this.el.playbackRate = S.get('nopeus', 1);
+    asetaMediaSession(otsikko);
+    paivitaPuhepalkki();
+    try { await this.el.play(); } catch (e) { if (e.name !== 'AbortError') { this.lopeta(); return false; } }
+    return true;
+  },
+  tauko() { this.el.pause(); },
+  jatka() { this.el.play().catch(() => {}); },
+  siirra(s) {
+    const d = isFinite(this.el.duration) ? this.el.duration : Infinity;
+    this.el.currentTime = Math.max(0, Math.min(d - 0.5, this.el.currentTime + s));
+  },
+  lopeta(hiljaa) {
+    const oli = this.id !== null;
+    this.id = null;
+    if (oli) { this.el.pause(); this.el.removeAttribute('src'); this.el.load(); }
+    if (this.blobUrl) { URL.revokeObjectURL(this.blobUrl); this.blobUrl = null; }
+    if (!hiljaa) paivitaPuhepalkki();
+  },
+};
+Aani.el.preload = 'auto';
+Aani.el.addEventListener('ended', () => Aani.lopeta());
+Aani.el.addEventListener('play', () => paivitaPuhepalkki());
+Aani.el.addEventListener('pause', () => paivitaPuhepalkki());
+Aani.el.addEventListener('timeupdate', () => paivitaAika());
+Aani.el.addEventListener('error', () => {
+  if (!Aani.id) return;
+  const id = Aani.id;
+  Aani.lopeta(true);
+  ilmoita('Äänitiedostoa ei saatu – luetaan puhelimen puheäänellä.');
+  puhuTekstina(id);
+});
+// Lukitusnäytön ja kuulokkeiden ohjaimet (toisto jatkuu, vaikka näyttö sammuu)
+function asetaMediaSession(otsikko) {
+  if (!('mediaSession' in navigator)) return;
+  const ms = navigator.mediaSession;
+  ms.metadata = new MediaMetadata({ title: otsikko, artist: 'Pompeiji-opas', album: 'Ääniopastus',
+    artwork: [{ src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }] });
+  const kasittelijat = { play: () => Aani.jatka(), pause: () => Aani.tauko(), stop: () => Aani.lopeta(),
+    seekbackward: () => Aani.siirra(-10), seekforward: () => Aani.siirra(10) };
+  for (const [tapahtuma, f] of Object.entries(kasittelijat)) {
+    try { ms.setActionHandler(tapahtuma, f); } catch { /* ei tuettu */ }
+  }
+}
+
 const IKONI_TAUKO = '<svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>';
 const IKONI_TOISTO = '<svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>';
+const aktiivinenToisto = () => (Aani.kaynnissa ? Aani : Puhe.kaynnissa ? Puhe : null);
+function mmss(s) { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+function paivitaAika() {
+  if (!Aani.kaynnissa) return;
+  const d = Aani.el.duration;
+  $('#puhe-aika').textContent = isFinite(d) ? `${mmss(Aani.el.currentTime)} / ${mmss(d)}` : mmss(Aani.el.currentTime);
+}
 function paivitaPuhepalkki() {
-  const p = $('#puhepalkki');
-  p.hidden = !Puhe.kaynnissa;
-  document.body.classList.toggle('puhuu', Puhe.kaynnissa);
-  $('#puhe-otsikko').textContent = Puhe.otsikko;
-  $('#puhe-tauko').innerHTML = Puhe.tauolla ? IKONI_TOISTO : IKONI_TAUKO;
-  $('#puhe-tauko').setAttribute('aria-label', Puhe.tauolla ? 'Jatka' : 'Tauko');
+  const t = aktiivinenToisto();
+  $('#puhepalkki').hidden = !t;
+  document.body.classList.toggle('puhuu', !!t);
+  $('#puhe-otsikko').textContent = t ? t.otsikko : '';
+  $('#puhe-tauko').innerHTML = t && t.tauolla ? IKONI_TOISTO : IKONI_TAUKO;
+  $('#puhe-tauko').setAttribute('aria-label', t && t.tauolla ? 'Jatka' : 'Tauko');
+  $('#puhe-taakse').hidden = t !== Aani;
+  $('#puhe-aika').hidden = t !== Aani;
+  paivitaAika();
   document.querySelectorAll('[data-kuuntele]').forEach(b => {
-    const paalla = Puhe.kaynnissa && Puhe.id === b.dataset.kuuntele;
+    const paalla = !!t && t.id === b.dataset.kuuntele;
     b.classList.toggle('ensisijainen', paalla);
-    b.querySelector('span').textContent = paalla ? 'Lukee…' : 'Kuuntele';
+    b.querySelector('span').textContent = paalla ? (t.tauolla ? 'Tauolla' : 'Kuuntelet…') : 'Kuuntele';
   });
 }
-function kuuntele(id) {
-  if (Puhe.kaynnissa && Puhe.id === id) { Puhe.tauolla ? Puhe.jatka() : Puhe.tauko(); return; }
+function puhuTekstina(id) {
   const k = kohdeById[id];
   if (k) {
     Puhe.puhu(id, k.nimi, [k.nimi + '.', k.lyhyt, ...(k.teksti || []),
@@ -210,6 +291,69 @@ function kuuntele(id) {
   }
   const a = TIETOA.taustaa.find(x => 'a-' + x.id === id);
   if (a) Puhe.puhu(id, a.otsikko, [a.otsikko + '.', ...(a.teksti || [])]);
+}
+async function kuuntele(id) {
+  const t = aktiivinenToisto();
+  if (t && t.id === id) { t.tauolla ? t.jatka() : t.tauko(); paivitaPuhepalkki(); return; }
+  const otsikko = kohdeById[id]?.nimi || TIETOA.taustaa.find(x => 'a-' + x.id === id)?.otsikko || '';
+  if (Aani.onko(id) && await Aani.soita(id, otsikko)) return;
+  puhuTekstina(id);
+}
+
+// Ääniopastuksen lataus puhelimeen
+const aanetUrlit = () => (AANET ? Object.values(AANET.tiedostot).map(t => new URL(t.f, location.href).href) : []);
+let aanetLatautuu = false, aanetEdistys = '';
+async function aanetTila() {
+  if (!AANET || !('caches' in window)) return { ladattu: 0, yht: 0 };
+  const c = await caches.open(AANIVARASTO);
+  const olemassa = new Set((await c.keys()).map(r => r.url));
+  const urlit = aanetUrlit();
+  return { ladattu: urlit.filter(u => olemassa.has(u)).length, yht: urlit.length };
+}
+async function lataaAanet() {
+  if (aanetLatautuu || !AANET) return;
+  aanetLatautuu = true;
+  try { await navigator.storage?.persist?.(); } catch { /* ei tuettu */ }
+  const c = await caches.open(AANIVARASTO);
+  const urlit = aanetUrlit(), halutut = new Set(urlit);
+  for (const r of await c.keys()) if (!halutut.has(r.url)) await c.delete(r);   // vanhentuneet pois
+  const olemassa = new Set((await c.keys()).map(r => r.url));
+  const jono = urlit.filter(u => !olemassa.has(u));
+  const yht = jono.length;
+  let valmiina = 0, virheet = 0;
+  const lataaja = async () => {
+    while (jono.length) {
+      const u = jono.shift();
+      try {
+        const r = await fetch(u, { cache: 'no-store' });
+        if (!r.ok) throw new Error(String(r.status));
+        await c.put(u, r);
+      } catch { virheet++; }
+      valmiina++;
+      aanetEdistys = `Ladataan… ${valmiina}/${yht}`;
+      paivitaAanetKortti();
+    }
+  };
+  await Promise.all([lataaja(), lataaja(), lataaja()]);
+  aanetLatautuu = false;
+  aanetEdistys = virheet ? `${virheet} tiedoston lataus epäonnistui. Tarkista netti ja yritä uudelleen.` : '';
+  paivitaAanetKortti();
+  if (!virheet) ilmoita('Ääniopastus on ladattu puhelimeen.');
+}
+async function paivitaAanetKortti() {
+  const el = $('#aanet-kortti'); if (!el) return;
+  if (!AANET) { el.innerHTML = '<p class="pieni-teksti" style="margin:0">Tässä versiossa ei ole valmiita äänitiedostoja.</p>'; return; }
+  const { ladattu, yht } = await aanetTila();
+  const mt = Math.round(AANET.yhteensa / 1e6), min = Math.round(AANET.yhteensa / 6000 / 60);
+  const valmis = yht && ladattu === yht;
+  el.className = 'kortti' + (valmis ? ' offline ok' : '');
+  el.innerHTML = valmis
+    ? `<b>✓ Ääniopastus on ladattu puhelimeen.</b>
+       <p class="pieni-teksti" style="margin:4px 0 0">${yht} kohdetta ja artikkelia, noin ${min} minuuttia, ${esc(AANET.nimi)} lukee. Kuuntele-painike toimii myös ilman nettiä, ja toisto jatkuu, vaikka näyttö sammuu.</p>`
+    : `<b>Lataa ääniopastus puhelimeen</b>
+       <p class="pieni-teksti" style="margin:4px 0 8px">Kaikki kohteet ja artikkelit on luettu valmiiksi luonnollisella äänellä (${esc(AANET.nimi)}, noin ${min} minuuttia). Lataa ne kotona wifissä (noin ${mt} Mt), niin ne toimivat myös ilman nettiä. Ilman latausta ääni soi netin kautta.</p>
+       ${aanetLatautuu ? '' : `<button class="nappi ensisijainen" data-lataa-aanet>${ladattu ? `Jatka latausta (${ladattu}/${yht} valmiina)` : `Lataa ääniopastus (${mt} Mt)`}</button>`}`;
+  if (aanetEdistys) el.insertAdjacentHTML('beforeend', `<p class="pieni-teksti" style="margin:8px 0 0">${esc(aanetEdistys)}</p>`);
 }
 const kuunteleNappi = id =>
   `<button class="nappi" data-kuuntele="${esc(id)}"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg><span>Kuuntele</span></button>`;
@@ -770,6 +914,13 @@ function piirraTietoa() {
       ${asennusKehote ? '<button class="nappi ensisijainen" data-asenna>Asenna aloitusnäytölle</button>'
         : '<p class="pieni-teksti" style="margin:0">Chromessa: valikko ⋮ → <b>Lisää aloitusnäytölle</b> tai <b>Asenna sovellus</b>.</p>'}</div>`}
 
+    <h2 id="aaniopastus">Ääniopastus</h2>
+    <div id="aanet-kortti" class="kortti"></div>
+    <div class="kortti">
+      <div class="asetus" style="margin:0"><label for="nopeus">Puhenopeus</label>
+        <input id="nopeus" type="range" min="0.7" max="1.3" step="0.05" value="${S.get('nopeus', 1)}"></div>
+    </div>
+
     <h2>Ennen matkaa</h2>
     <div class="kortti"><ol>${(TIETOA.ennen || []).map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>
 
@@ -782,18 +933,17 @@ function piirraTietoa() {
     ${TIETOA.taustaa.map(a => `<a class="rivi" href="#artikkeli/${a.id}"><span class="runko">
       <span class="nimi">${esc(a.otsikko)}</span><span class="lisa">${esc(a.lyhyt)}</span></span><span class="oikea">›</span></a>`).join('')}
 
-    <h2 id="asetukset">Ääneen luku</h2>
+    <h2 id="asetukset">Puhelimen oma puheääni (varalla)</h2>
     <div class="kortti">
+      <p class="pieni-teksti" style="margin-top:0">Opas käyttää puhelimen omaa puheääntä vain, jos ääniopastusta ei ole ladattu eikä nettiä ole – tai jos otat valmiit äänitiedostot pois käytöstä alla.</p>
       <div id="aani-asetus"></div>
-      <div class="asetus"><label for="nopeus">Puhenopeus</label>
-        <input id="nopeus" type="range" min="0.7" max="1.3" step="0.05" value="${S.get('nopeus', 1)}"></div>
-      <button class="nappi" data-kokeile-aani>Kokeile ääntä</button>
+      <button class="nappi" data-kokeile-aani>Kokeile puhelimen ääntä</button>
       <details style="margin-top:12px;border:0;background:none"><summary style="padding:6px 0">Näin lataat suomen puheäänen</summary><div style="padding:0">
         <ol>
           <li>Avaa puhelimen <b>Asetukset</b> ja kirjoita hakuun <b>tekstistä puheeksi</b> (tai <i>text-to-speech</i>).</li>
           <li>Valitse ensisijaiseksi moottoriksi <b>Googlen puhepalvelut</b> (Speech Services by Google).</li>
           <li>Paina moottorin vieressä olevaa ratasta → <b>Asenna äänidata</b> → <b>suomi</b> ja lataa se.</li>
-          <li>Palaa tänne ja paina <b>Kokeile ääntä</b>. Kokeile myös lentotilassa, niin tiedät, että ääni toimii ilman nettiä.</li>
+          <li>Palaa tänne ja paina <b>Kokeile puhelimen ääntä</b>.</li>
         </ol>
         <p class="pieni-teksti">Valikkojen nimet vaihtelevat hieman puhelinmallin mukaan (esim. Samsungissa Yleinen hallinta → Kieli → Tekstistä puheeksi).</p>
       </div></details>
@@ -801,6 +951,8 @@ function piirraTietoa() {
 
     <h2>Asetukset</h2>
     <div class="kortti">
+      <label class="kytkin"><input type="checkbox" id="aaniopas" ${S.get('aaniopas', true) ? 'checked' : ''}> Käytä valmiita äänitiedostoja</label>
+      <p class="pieni-teksti">Pois päältä opas lukee tekstit puhelimen omalla puheäänellä.</p>
       <label class="kytkin"><input type="checkbox" id="valveilla" ${S.get('valveilla', false) ? 'checked' : ''}> Pidä näyttö päällä, kun opas on auki</label>
       <p class="pieni-teksti">Helpottaa kartan seuraamista, mutta kuluttaa akkua.</p>
       <button class="nappi" data-nollaa-nahty>Nollaa nähdyt kohteet</button>
@@ -812,6 +964,7 @@ function piirraTietoa() {
       <p>Versio ${VERSIO}</p></div>
   </div>`;
   paivitaAaniasetus();
+  paivitaAanetKortti();
   tarkistaOffline();
 }
 function paivitaAaniasetus() {
@@ -858,7 +1011,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 // ------------------------------------------------------------- yhteiset klikkaukset
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-kuuntele],[data-kartalle],[data-nahty],[data-reitti-aloita],[data-reitti-lopeta],[data-paikka],[data-asenna],[data-kokeile-aani],[data-nollaa-nahty]');
+  const t = e.target.closest('[data-kuuntele],[data-kartalle],[data-nahty],[data-reitti-aloita],[data-reitti-lopeta],[data-paikka],[data-asenna],[data-kokeile-aani],[data-nollaa-nahty],[data-lataa-aanet]');
   if (!t) return;
   const d = t.dataset;
   if (d.kuuntele) kuuntele(d.kuuntele);
@@ -873,19 +1026,25 @@ document.addEventListener('click', e => {
   else if ('reittiLopeta' in d) lopetaReitti();
   else if (d.paikka) { tarkennaKohteeseen = { paikka: paikat[+d.paikka] }; location.hash = '#kartta'; }
   else if ('asenna' in d && asennusKehote) { asennusKehote.prompt(); asennusKehote.userChoice.finally(() => { asennusKehote = null; piirraTietoa(); }); }
-  else if ('kokeileAani' in d) Puhe.puhu('kokeilu', 'Äänen kokeilu', ['Tervetuloa Pompeijiin! Näin opas lukee kohteiden tekstit ääneen.']);
+  else if ('kokeileAani' in d) { Aani.lopeta(true); Puhe.puhu('kokeilu', 'Puhelimen puheääni', ['Tervetuloa Pompeijiin! Näin puhelimen oma puheääni lukee tekstit.']); }
   else if ('nollaaNahty' in d) { nahty = new Set(); S.set('nahty', []); listaLikainen = true; paivitaMerkit(); ilmoita('Nähdyt kohteet nollattu'); }
+  else if ('lataaAanet' in d) { aanetEdistys = 'Aloitetaan latausta…'; lataaAanet(); paivitaAanetKortti(); }
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'aani') S.set('aani', e.target.value);
-  if (e.target.id === 'nopeus') S.set('nopeus', +e.target.value);
+  if (e.target.id === 'nopeus') { S.set('nopeus', +e.target.value); Aani.el.playbackRate = +e.target.value; }
+  if (e.target.id === 'aaniopas') S.set('aaniopas', e.target.checked);
   if (e.target.id === 'valveilla') {
     S.set('valveilla', e.target.checked);
     if (e.target.checked) pyydaValveilla(); else if (wakeLock) { wakeLock.release(); wakeLock = null; }
   }
 });
-$('#puhe-tauko').addEventListener('click', () => (Puhe.tauolla ? Puhe.jatka() : Puhe.tauko()));
-$('#puhe-lopeta').addEventListener('click', () => Puhe.lopeta());
+$('#puhe-tauko').addEventListener('click', () => {
+  const t = aktiivinenToisto();
+  if (t) { t.tauolla ? t.jatka() : t.tauko(); paivitaPuhepalkki(); }
+});
+$('#puhe-taakse').addEventListener('click', () => Aani.siirra(-10));
+$('#puhe-lopeta').addEventListener('click', () => { Aani.lopeta(true); Puhe.lopeta(); });
 
 // ------------------------------------------------------------- käynnistys
 // Offline-tallennus. Omalla koneella (localhost) vain osoitteella ?sw, jotta muokkaukset näkyvät heti.

@@ -73,7 +73,8 @@
 
 <div id="puhepalkki" class="puhepalkki" hidden>
   <svg class="puhe-ikoni" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
-  <span id="puhe-otsikko" class="puhe-otsikko"></span>
+  <span class="puhe-teksti"><span id="puhe-otsikko" class="puhe-otsikko"></span><small id="puhe-aika" hidden></small></span>
+  <button id="puhe-taakse" class="ikoninappi" aria-label="10 sekuntia taaksepäin" hidden><svg viewBox="0 0 24 24"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg></button>
   <button id="puhe-tauko" class="ikoninappi" aria-label="Tauko"></button>
   <button id="puhe-lopeta" class="ikoninappi" aria-label="Lopeta"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>
 </div>
@@ -106,6 +107,7 @@
 <script src="data/kohteet-3.js"></script>
 <script src="data/reitit.js"></script>
 <script src="data/tietoa.js"></script>
+<script src="data/aanet.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -320,7 +320,9 @@ p { margin: 0 0 12px; }
   box-shadow: 0 4px 14px rgba(0,0,0,.35);
 }
 .puhe-ikoni { flex: none; }
-.puhe-otsikko { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.puhe-teksti { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.puhe-otsikko { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.puhe-teksti small { font-size: 12.5px; opacity: .75; font-variant-numeric: tabular-nums; }
 body.puhuu .reittipalkki, body.puhuu .karttanapit { margin-bottom: 64px; }
 body.puhuu .vierittyva { padding-bottom: 190px; }
 

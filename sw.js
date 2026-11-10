@@ -1,7 +1,7 @@
 /* Pompeiji-opas — service worker: tallentaa koko oppaan puhelimeen, jotta se toimii ilman nettiä.
  * Nosta VERSIO (sama kuin app.js:ssä) aina kun julkaiset muutoksia — muuten puhelimet
  * jatkavat vanhan version käyttöä. */
-const VERSIO = '2026-11-10.1';
+const VERSIO = '2026-11-10.2';
 const VALIMUISTI = 'pompeiji-' + VERSIO;
 const TIEDOSTOT = [
   './',
@@ -17,6 +17,7 @@ const TIEDOSTOT = [
   'data/kohteet-3.js',
   'data/reitit.js',
   'data/tietoa.js',
+  'data/aanet.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/maskable-512.png',

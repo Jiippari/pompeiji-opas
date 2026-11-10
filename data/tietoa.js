@@ -7,7 +7,7 @@ window.TIETOA = {
   "ennen": [
     "Asenna opas puhelimen aloitusnäytölle (Chromen valikko ⋮ → Lisää aloitusnäytölle tai Asenna sovellus).",
     "Avaa opas kerran netin ollessa päällä ja odota, että tämän sivun yläreunaan tulee vihreä merkki: silloin kaikki on tallennettu puhelimeen.",
-    "Lataa puhelimeen suomenkielinen puheääni (ohje alempana kohdassa Ääneen luku) ja kokeile Kuuntele-painiketta lentotilassa.",
+    "Lataa ääniopastus wifissä (ylempänä kohdassa Ääniopastus) ja kokeile jonkin kohteen Kuuntele-painiketta lentotilassa.",
     "Salli sijainnin käyttö, kun opas kysyy. Sijainti näkyy kartalla vasta Pompeijissa.",
     "Ostakaa liput etukäteen virallisesta myynnistä ja tallentakaa lippujen PDF-tiedostot puhelimeen. Ottakaa mukaan passi tai henkilökortti.",
     "Ottakaa mukaan varavirtalähde: kartta, sijainti ja ääneen luku kuluttavat akkua."
