@@ -4,7 +4,7 @@
  * Muista nostaa VERSIO sekä täällä että sw.js:ssä, kun julkaiset muutoksia. */
 'use strict';
 (() => {
-const VERSIO = '2026-11-10.5';
+const VERSIO = '2026-11-11.1';
 
 const KARTTA = window.KARTTA;
 const KOHTEET = window.KOHTEET || [];
@@ -150,13 +150,13 @@ const Puhe = {
     const fi = this.suomi(), nimi = S.get('aani', null);
     return fi.find(v => v.name === nimi) || fi.find(v => v.localService) || fi[0] || null;
   },
-  puhu(id, otsikko, kappaleet) {
+  puhu(id, otsikko, kappaleet, kieli = 'fi-FI') {
     if (!this.tuettu) { ilmoita('Tämä selain ei osaa lukea tekstiä ääneen.'); return; }
     this.lopeta(true);
-    this.id = id; this.otsikko = otsikko;
-    this.jono = pilkoLauseiksi(kappaleet); this.indeksi = 0;
+    this.id = id; this.otsikko = otsikko; this.kieli = kieli;
+    this.jono = kieli === 'fi-FI' ? pilkoLauseiksi(kappaleet) : kappaleet; this.indeksi = 0;
     this.kaynnissa = true; this.tauolla = false;
-    if (!this.suomi().length && !S.get('aaniVaroitettu', false)) {
+    if (kieli === 'fi-FI' && !this.suomi().length && !S.get('aaniVaroitettu', false)) {
       ilmoita('Puhelimesta ei löytynyt suomenkielistä puheääntä. Lataa ääniopastus: Tietoa → Ääniopastus.', 6000);
       S.set('aaniVaroitettu', true);
     }
@@ -166,8 +166,9 @@ const Puhe = {
     if (!this.kaynnissa || this.tauolla) return;
     if (this.indeksi >= this.jono.length) { this.lopeta(); return; }
     const u = new SpeechSynthesisUtterance(this.jono[this.indeksi]);
-    u.lang = 'fi-FI';
-    const a = this.aani(); if (a) u.voice = a;
+    u.lang = this.kieli || 'fi-FI';
+    const a = u.lang === 'fi-FI' ? this.aani() : this.aanet.find(v => v.lang.toLowerCase().startsWith(u.lang.slice(0, 2)));
+    if (a) u.voice = a;
     u.rate = S.get('nopeus', 1);
     u.onend = () => { if (this.utt !== u) return; this.indeksi++; this.seuraava(); };
     u.onerror = e => {
@@ -290,12 +291,15 @@ function puhuTekstina(id) {
     return;
   }
   const a = TIETOA.taustaa.find(x => 'a-' + x.id === id);
-  if (a) Puhe.puhu(id, a.otsikko, [a.otsikko + '.', ...(a.teksti || [])]);
+  if (a) { Puhe.puhu(id, a.otsikko, [a.otsikko + '.', ...(a.teksti || [])]); return; }
+  const l = id.startsWith('lause-') && window.MATKA?.lauseet[+id.slice(6)];
+  if (l) Puhe.puhu(id, l.it, [l.it], 'it-IT');
 }
 async function kuuntele(id) {
   const t = aktiivinenToisto();
   if (t && t.id === id) { t.tauolla ? t.jatka() : t.tauko(); paivitaPuhepalkki(); return; }
-  const otsikko = kohdeById[id]?.nimi || TIETOA.taustaa.find(x => 'a-' + x.id === id)?.otsikko || '';
+  const otsikko = kohdeById[id]?.nimi || TIETOA.taustaa.find(x => 'a-' + x.id === id)?.otsikko
+    || (id.startsWith('lause-') ? window.MATKA?.lauseet[+id.slice(6)]?.it : '') || '';
   if (Aani.onko(id) && await Aani.soita(id, otsikko)) return;
   puhuTekstina(id);
 }
@@ -349,7 +353,7 @@ async function paivitaAanetKortti() {
   el.className = 'kortti' + (valmis ? ' offline ok' : '');
   el.innerHTML = valmis
     ? `<b>✓ Ääniopastus on ladattu puhelimeen.</b>
-       <p class="pieni-teksti" style="margin:4px 0 0">${yht} kohdetta ja artikkelia, noin ${min} minuuttia, ${esc(AANET.nimi)} lukee. Kuuntele-painike toimii myös ilman nettiä, ja toisto jatkuu, vaikka näyttö sammuu.</p>`
+       <p class="pieni-teksti" style="margin:4px 0 0">${yht} äänitiedostoa, noin ${min} minuuttia, ${esc(AANET.nimi)} lukee. Kuuntele-painike toimii myös ilman nettiä, ja toisto jatkuu, vaikka näyttö sammuu.</p>`
     : `<b>Lataa ääniopastus puhelimeen</b>
        <p class="pieni-teksti" style="margin:4px 0 8px">Kaikki kohteet ja artikkelit on luettu valmiiksi luonnollisella äänellä (${esc(AANET.nimi)}, noin ${min} minuuttia). Lataa ne kotona wifissä (noin ${mt} Mt), niin ne toimivat myös ilman nettiä. Ilman latausta ääni soi netin kautta.</p>
        ${aanetLatautuu ? '' : `<button class="nappi ensisijainen" data-lataa-aanet>${ladattu ? `Jatka latausta (${ladattu}/${yht} valmiina)` : `Lataa ääniopastus (${mt} Mt)`}</button>`}`;
@@ -360,15 +364,16 @@ const kuunteleNappi = id =>
 
 // ------------------------------------------------------------- näkymät ja reititys
 const OTSIKOT = { kartta: 'Pompeiji', kohteet: 'Kohteet', reitit: 'Reitit', tietoa: 'Tietoa' };
-const VALILEHTI = { kohde: 'kohteet', artikkeli: 'tietoa' };
+const VALILEHTI = { kohde: 'kohteet', artikkeli: 'tietoa', matka: 'tietoa' };
 let nykyinen = null;
 
 function reititys() {
   const [nimi, arg] = (location.hash.slice(1) || 'kartta').split('/');
-  nayta(nimi in OTSIKOT || nimi === 'kohde' || nimi === 'artikkeli' ? nimi : 'kartta', arg ? decodeURIComponent(arg) : null);
+  nayta(nimi in OTSIKOT || nimi in VALILEHTI ? nimi : 'kartta', arg ? decodeURIComponent(arg) : null);
 }
 function nayta(nimi, arg) {
   suljeArkki();
+  $('#lause-iso').hidden = true;
   document.querySelectorAll('.nakyma').forEach(n => { n.hidden = n.id !== 'nakyma-' + nimi; });
   const tab = VALILEHTI[nimi] || nimi;
   document.querySelectorAll('#alapalkki a').forEach(a => a.classList.toggle('aktiivinen', a.dataset.v === tab));
@@ -380,13 +385,14 @@ function nayta(nimi, arg) {
   if (nimi === 'reitit') piirraReitit();
   if (nimi === 'tietoa') piirraTietoa();
   if (nimi === 'artikkeli') { otsikko = piirraArtikkeli(arg); }
+  if (nimi === 'matka') { otsikko = piirraMatka(); }
   $('#otsikko').textContent = otsikko || 'Pompeiji';
-  if (nimi === 'kohde' || nimi === 'artikkeli') $('#nakyma-' + nimi).scrollTop = 0;
+  if (nimi in VALILEHTI) $('#nakyma-' + nimi).scrollTop = 0;
   nykyinen = nimi;
 }
 $('#takaisin').addEventListener('click', () => {
   if (history.length > 1) history.back();
-  else location.hash = nykyinen === 'artikkeli' ? '#tietoa' : '#kohteet';
+  else location.hash = '#' + (VALILEHTI[nykyinen] || 'kohteet');
 });
 
 // ------------------------------------------------------------- kartta
@@ -815,7 +821,7 @@ function piirraKohde(id) {
 function piirraReitit() {
   const el = $('#nakyma-reitit');
   if (!REITIT.length) { el.innerHTML = '<p class="tyhja">Reittejä ei ole vielä laskettu.</p>'; return; }
-  el.innerHTML = `<p class="pieni-teksti">Reitit kulkevat katuja pitkin. Ajat ovat suuntaa antavia: kävely rauhallisella vauhdilla
+  el.innerHTML = matkaLinkki() + `<p class="pieni-teksti">Reitit kulkevat katuja pitkin. Ajat ovat suuntaa antavia: kävely rauhallisella vauhdilla
     epätasaisella kivetyksellä sekä tavallinen pysähtyminen kohteissa. Talvella viimeinen sisäänpääsy on jo klo 15.30.</p>` +
   REITIT.map(r => {
     const aktiivinen = aktiivinenReitti?.id === r.id;
@@ -909,6 +915,7 @@ function piirraTietoa() {
     ? `<ul>${p.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p>${esc(p)}</p>`).join('');
   el.innerHTML = `<div class="tietoa">
     <div id="offline-tila" class="kortti offline odota">⏳ Tarkistetaan, onko opas tallennettu puhelimeen…</div>
+    ${matkaLinkki()}
     ${asennettu() ? '' : `<div class="kortti"><b>Asenna opas puhelimeen</b>
       <p class="pieni-teksti" style="margin:4px 0 8px">Asennettuna opas aukeaa omasta kuvakkeestaan kuin tavallinen sovellus ja toimii ilman nettiä.</p>
       ${asennusKehote ? '<button class="nappi ensisijainen" data-asenna>Asenna aloitusnäytölle</button>'
@@ -992,6 +999,91 @@ async function tarkistaOffline() {
     if (!ok) setTimeout(tarkistaOffline, 2500);
   } catch { el.textContent = 'Tallennuksen tilaa ei voitu tarkistaa.'; }
 }
+// ------------------------------------------------------------- matkaohje satamasta Pompeijiin
+const MATKA = window.MATKA || null;
+const matkaLinkki = () => (MATKA ? `<a class="kortti matkalinkki" href="#matka"><span class="matka-ikoni">🚆</span>
+  <span class="runko"><b>${esc(MATKA.otsikko)}</b><span class="pieni-teksti">Tarkka ohje vaihe vaiheelta: metro, juna, paluu laivalle ja valmiit lauseet italiaksi</span></span>
+  <span class="oikea">›</span></a>` : '');
+const minuutit = s => { const m = /^(\d{1,2}):(\d{2})/.exec(s || ''); return m ? +m[1] * 60 + +m[2] : null; };
+const kello = min => { const m = ((Math.round(min) % 1440) + 1440) % 1440; return `${Math.floor(m / 60)}.${String(m % 60).padStart(2, '0')}`; };
+function laskeMatka() {
+  const el = $('#matka-tulos'); if (!el) return;
+  const maihin = minuutit($('#matka-maihin').value), aboard = minuutit($('#matka-aboard').value);
+  if (maihin === null || aboard === null) {
+    el.innerHTML = '<p class="pieni-teksti" style="margin:8px 0 0">Kirjoita laivan päiväohjelmasta maihinnousun ja all aboard -ajan kellonajat, niin laskuri kertoo aikataulun.</p>';
+    return;
+  }
+  const perilla = maihin + 90;          // terminaali → metro → vaihto → juna (+ odotukset)
+  const viimeistaan = aboard - 180;     // 3 h väljyys: matka n. 1,5 h + varaa myöhästymisille
+  const aika = viimeistaan - perilla;
+  const huom = [];
+  if (aika < 120) huom.push('Aikaa jää alle kaksi tuntia. Juna ei silloin oikein kannata – harkitkaa laivan omaa retkeä tai taksia.');
+  if (perilla > 15 * 60 + 30) huom.push('Talviaikaan (15.10.–15.3.) Pompeijin viimeinen sisäänpääsy on klo 15.30.');
+  if (viimeistaan > 17 * 60) huom.push('Talvella alue sulkeutuu jo klo 17.00 (kesällä 19.00), joten silloin on lähdettävä viimeistään.');
+  el.innerHTML = `<table class="aikataulu">
+      <tr><td>Lähtekää satamasta</td><td>klo ${kello(maihin + 15)}</td></tr>
+      <tr><td>Perillä Pompeijissa noin</td><td>klo ${kello(perilla)}</td></tr>
+      <tr class="tarkea"><td>Lähtekää Pompeijista asemalle viimeistään</td><td>klo ${kello(viimeistaan)}</td></tr>
+      <tr><td>Aikaa Pompeijissa</td><td>${aika > 0 ? kesto(aika) : '–'}</td></tr>
+    </table>
+    <p class="pieni-teksti" style="margin:6px 0 0">Asettakaa puhelimeen herätys lähtöajalle klo ${kello(viimeistaan)}.</p>
+    ${huom.map(h => `<p class="varoitus" style="margin:8px 0 0">${esc(h)}</p>`).join('')}`;
+}
+function piirraMatka() {
+  const el = $('#nakyma-matka');
+  if (!MATKA) { el.innerHTML = '<p class="tyhja">Matkaohjetta ei löytynyt.</p>'; return 'Matkaohje'; }
+  const tehty = new Set(S.get('matkaTehty', []));
+  const vaiheet = (lista, osa) => lista.map((v, i) => {
+    const avain = `${osa}${i}`, ok = tehty.has(avain);
+    return `<div class="vaihe${ok ? ' tehty' : ''}" data-vaihe="${avain}" role="button" tabindex="0" aria-pressed="${ok}">
+      <span class="vaihe-nro" data-nro="${i + 1}">${ok ? '✓' : i + 1}</span>
+      <div class="vaihe-runko"><h3>${esc(v.otsikko)}</h3>
+        ${v.teksti.map(p => `<p>${esc(p)}</p>`).join('')}
+        ${v.tunnista ? `<p class="tunnista"><b>Etsi:</b> ${esc(v.tunnista)}</p>` : ''}
+        ${v.varo ? `<p class="varo"><b>Huom!</b> ${esc(v.varo)}</p>` : ''}
+      </div></div>`;
+  }).join('');
+  const aaniIkoni = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>';
+  el.innerHTML = `<article class="matka">
+    <h1>${esc(MATKA.otsikko)}</h1>
+    ${MATKA.johdanto.map(p => `<p>${esc(p)}</p>`).join('')}
+    <div class="kortti laskuri"><b>Aikalaskuri</b>
+      <div class="laskuri-rivi">
+        <label>Maihin klo<input type="time" id="matka-maihin" value="${esc(S.get('matkaMaihin', ''))}"></label>
+        <label>All aboard klo<input type="time" id="matka-aboard" value="${esc(S.get('matkaAboard', ''))}"></label>
+      </div>
+      <div id="matka-tulos"></div>
+    </div>
+    <h2>Menomatka</h2>
+    <p class="pieni-teksti">Napauta vaihetta, kun se on tehty.</p>
+    ${vaiheet(MATKA.menomatka, 'm')}
+    <h2>Paluu laivalle</h2>
+    ${vaiheet(MATKA.paluu, 'p')}
+    <button class="nappi" data-matka-nollaa>Tyhjennä tehdyt-merkinnät</button>
+    <h2>Jos jokin menee pieleen</h2>
+    ${MATKA.pieleen.map(x => `<div class="kortti"><b>${esc(x.otsikko)}</b><p style="margin:4px 0 0">${esc(x.teksti)}</p></div>`).join('')}
+    <h2 id="lauseet">Näytä italiaksi</h2>
+    <p class="pieni-teksti">Napauta lausetta, niin se näkyy koko näytöllä isolla tekstillä – näyttäkää puhelin asemahenkilökunnalle tai taksikuskille.${
+      AANET && MATKA.lauseet.some((l, i) => AANET.tiedostot['lause-' + i]) ? ' Kaiutinpainikkeesta lause luetaan ääneen italiaksi.' : ''}</p>
+    <div class="lauseet">${MATKA.lauseet.map((l, i) => `<div class="lause">
+      <button class="lause-teksti" data-lause="${i}"><span class="it">${esc(l.it)}</span><span class="fi">${esc(l.fi)}</span></button>
+      ${AANET?.tiedostot['lause-' + i] ? `<button class="ikoninappi lause-aani" data-kuuntele="lause-${i}" aria-label="Kuuntele italiaksi">${aaniIkoni}<span hidden>Kuuntele</span></button>` : ''}
+    </div>`).join('')}</div>
+    <p class="pieni-teksti" style="margin-top:16px">${esc(MATKA.tarkistettu)}</p>
+  </article>`;
+  laskeMatka();
+  paivitaPuhepalkki();
+  return 'Satamasta Pompeijiin';
+}
+function naytaLause(i) {
+  const l = MATKA.lauseet[i];
+  const el = $('#lause-iso');
+  el.querySelector('.it').textContent = l.it;
+  el.querySelector('.fi').textContent = l.fi;
+  el.hidden = false;
+}
+$('#lause-iso').addEventListener('click', () => { $('#lause-iso').hidden = true; });
+
 function piirraArtikkeli(id) {
   const a = TIETOA.taustaa.find(x => x.id === id);
   const el = $('#nakyma-artikkeli');
@@ -1013,7 +1105,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 // ------------------------------------------------------------- yhteiset klikkaukset
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-kuuntele],[data-kartalle],[data-nahty],[data-reitti-aloita],[data-reitti-lopeta],[data-paikka],[data-asenna],[data-kokeile-aani],[data-nollaa-nahty],[data-lataa-aanet]');
+  const t = e.target.closest('[data-kuuntele],[data-kartalle],[data-nahty],[data-reitti-aloita],[data-reitti-lopeta],[data-paikka],[data-asenna],[data-kokeile-aani],[data-nollaa-nahty],[data-lataa-aanet],[data-vaihe],[data-lause],[data-matka-nollaa]');
   if (!t) return;
   const d = t.dataset;
   if (d.kuuntele) kuuntele(d.kuuntele);
@@ -1031,6 +1123,23 @@ document.addEventListener('click', e => {
   else if ('kokeileAani' in d) { Aani.lopeta(true); Puhe.puhu('kokeilu', 'Puhelimen puheääni', ['Tervetuloa Pompeijiin! Näin puhelimen oma puheääni lukee tekstit.']); }
   else if ('nollaaNahty' in d) { nahty = new Set(); S.set('nahty', []); listaLikainen = true; paivitaMerkit(); ilmoita('Nähdyt kohteet nollattu'); }
   else if ('lataaAanet' in d) { aanetEdistys = 'Aloitetaan latausta…'; lataaAanet(); paivitaAanetKortti(); }
+  else if (d.vaihe) {
+    const tehty = new Set(S.get('matkaTehty', []));
+    tehty.has(d.vaihe) ? tehty.delete(d.vaihe) : tehty.add(d.vaihe);
+    S.set('matkaTehty', [...tehty]);
+    const ok = tehty.has(d.vaihe), nro = t.querySelector('.vaihe-nro');
+    t.classList.toggle('tehty', ok);
+    t.setAttribute('aria-pressed', String(ok));
+    nro.textContent = ok ? '✓' : nro.dataset.nro;
+  }
+  else if (d.lause) naytaLause(+d.lause);
+  else if ('matkaNollaa' in d) { S.set('matkaTehty', []); piirraMatka(); }
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'matka-maihin' || e.target.id === 'matka-aboard') {
+    S.set(e.target.id === 'matka-maihin' ? 'matkaMaihin' : 'matkaAboard', e.target.value);
+    laskeMatka();
+  }
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'aani') S.set('aani', e.target.value);

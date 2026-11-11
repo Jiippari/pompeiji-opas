@@ -6,6 +6,7 @@ window.TIETOA = {
 
   "ennen": [
     "Asenna opas puhelimen aloitusnäytölle (Chromen valikko ⋮ → Lisää aloitusnäytölle tai Asenna sovellus).",
+    "Lukekaa Satamasta Pompeijiin -ohje kotona rauhassa läpi ja täyttäkää sen aikalaskuriin laivan ajat, kun ne ovat tiedossa.",
     "Avaa opas kerran netin ollessa päällä ja odota, että tämän sivun yläreunaan tulee vihreä merkki: silloin kaikki on tallennettu puhelimeen.",
     "Lataa ääniopastus wifissä (ylempänä kohdassa Ääniopastus) ja kokeile jonkin kohteen Kuuntele-painiketta lentotilassa.",
     "Salli sijainnin käyttö, kun opas kysyy. Sijainti näkyy kartalla vasta Pompeijissa.",
@@ -62,7 +63,8 @@ window.TIETOA = {
     {
       "otsikko": "Perille pääsy",
       "teksti": [
-        "Napolista ja Sorrentosta pääsee paikallisjunalla Circumvesuviana, linja Napoli–Sorrento. Jääkää pois asemalla Pompei Scavi – Villa dei Misteri, josta on muutama minuutti kävellen Porta Marinalle.",
+        "Napolin risteilysatamasta on tarkka vaihe vaiheelta -ohje tämän sivun alussa (Satamasta Pompeijiin junalla).",
+        "Napolista ja Sorrentosta pääsee paikallisjunalla Circumvesuviana, linja Napoli–Sorrento. Jääkää pois asemalla Pompei Scavi – Villa dei Misteri, josta on muutama minuutti kävellen Porta Marinalle. Turistijuna Campania Express on tauolla 1.10.2026 alkaen.",
         "Paikallisjunat ovat usein täysiä ja myöhässä, joten varatkaa aikaa. Pitäkää laukut ja puhelimet tiukasti mukana junassa ja asemilla."
       ]
     },

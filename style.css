@@ -311,6 +311,57 @@ p { margin: 0 0 12px; }
 .pieni-teksti { font-size: 14px; color: var(--himmea); }
 .varoitus { background: #fbe9e6; border: 1px solid #f0c3bc; border-radius: 10px; padding: 10px 12px; font-size: 15px; }
 
+/* ---------- matkaohje ---------- */
+.matkalinkki { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; border: 2px solid var(--pun); }
+.matkalinkki .matka-ikoni { font-size: 30px; line-height: 1; }
+.matkalinkki .runko { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.matkalinkki .oikea { font-size: 26px; color: var(--pun); }
+.matka h1 { font: 600 26px/1.2 var(--sarja); margin: 0 0 10px; color: var(--pun-tumma); }
+.laskuri-rivi { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.laskuri-rivi label { display: flex; flex-direction: column; gap: 4px; font-size: 14.5px; font-weight: 600; flex: 1; min-width: 130px; }
+.laskuri-rivi input { font-size: 20px; padding: 8px; border-radius: 10px; border: 1.5px solid var(--raja); background: #fff; }
+.aikataulu { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 16px; }
+.aikataulu td { padding: 6px 0; border-bottom: 1px dashed var(--raja); }
+.aikataulu td:last-child { text-align: right; font-weight: 700; white-space: nowrap; padding-left: 10px; }
+.aikataulu tr.tarkea td { color: var(--kiinni); font-size: 17.5px; }
+.vaihe {
+  display: flex; gap: 12px; align-items: flex-start; cursor: pointer;
+  background: var(--kortti); border: 1px solid var(--raja); border-radius: 14px;
+  padding: 14px 14px 6px; margin: 0 auto 10px;
+}
+.vaihe:active { background: #f2e8d6; }
+.vaihe-nro {
+  flex: none; width: 34px; height: 34px; border-radius: 50%; margin-top: 2px;
+  background: var(--pun); color: #fff; font-weight: 700; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.vaihe-runko { flex: 1; min-width: 0; }
+.vaihe-runko h3 { margin: 4px 0 6px; font-size: 18px; }
+.vaihe-runko p { margin: 0 0 8px; }
+.vaihe .tunnista { background: #e8eef8; border-radius: 8px; padding: 7px 10px; font-size: 15.5px; }
+.vaihe .varo { background: #fbe9e6; border-radius: 8px; padding: 7px 10px; font-size: 15.5px; }
+.vaihe.tehty { opacity: .6; }
+.vaihe.tehty .vaihe-nro { background: var(--ok); }
+.vaihe.tehty h3 { text-decoration: line-through; }
+.lauseet { display: flex; flex-direction: column; gap: 8px; }
+.lause { display: flex; align-items: stretch; gap: 6px; }
+.lause-teksti {
+  flex: 1; text-align: left; border: 1px solid var(--raja); background: var(--kortti); border-radius: 12px;
+  padding: 10px 14px; display: flex; flex-direction: column; gap: 2px;
+}
+.lause-teksti .it { font-weight: 700; font-size: 17px; }
+.lause-teksti .fi { font-size: 14.5px; color: var(--himmea); }
+.lause-aani { flex: none; width: 52px; height: auto; border-radius: 12px; border: 1.5px solid var(--pun); color: var(--pun); background: var(--kortti); }
+.lause-aani.ensisijainen { background: var(--pun); color: #fff; }
+.lause-iso {
+  position: fixed; inset: 0; z-index: 1200; background: #fff; color: #111;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 24px;
+  padding: 24px; text-align: center;
+}
+.lause-iso .it { font: 700 clamp(30px, 9vw, 54px)/1.25 system-ui, sans-serif; }
+.lause-iso .fi { font-size: 19px; color: #666; }
+.lause-iso .sulje-ohje { position: absolute; bottom: calc(20px + env(safe-area-inset-bottom)); font-size: 14px; color: #999; margin: 0; }
+
 /* ---------- puhepalkki ja ilmoitus ---------- */
 .puhepalkki {
   position: fixed; left: 10px; right: 10px; z-index: 1002;
