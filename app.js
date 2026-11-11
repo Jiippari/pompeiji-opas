@@ -4,7 +4,7 @@
  * Muista nostaa VERSIO sekä täällä että sw.js:ssä, kun julkaiset muutoksia. */
 'use strict';
 (() => {
-const VERSIO = '2026-11-11.1';
+const VERSIO = '2026-11-11.2';
 
 const KARTTA = window.KARTTA;
 const KOHTEET = window.KOHTEET || [];
@@ -1004,13 +1004,25 @@ const MATKA = window.MATKA || null;
 const matkaLinkki = () => (MATKA ? `<a class="kortti matkalinkki" href="#matka"><span class="matka-ikoni">🚆</span>
   <span class="runko"><b>${esc(MATKA.otsikko)}</b><span class="pieni-teksti">Tarkka ohje vaihe vaiheelta: metro, juna, paluu laivalle ja valmiit lauseet italiaksi</span></span>
   <span class="oikea">›</span></a>` : '');
-const minuutit = s => { const m = /^(\d{1,2}):(\d{2})/.exec(s || ''); return m ? +m[1] * 60 + +m[2] : null; };
+// Kellonaika vapaasti kirjoitettuna: 8.30, 8:30, 8,30, 830, 0830, 17 tai 17.3 (= 17.30)
+const minuutit = s => {
+  const t = String(s || '').trim().replace(/\s/g, '');
+  let m = /^(\d{1,2})[.:,](\d{1,2})$/.exec(t) || /^(\d{1,2})(\d{2})$/.exec(t);
+  if (!m && /^\d{1,2}$/.test(t)) m = [t, t, '0'];
+  if (!m) return null;
+  const h = +m[1], min = m[2].length === 1 ? +m[2] * 10 : +m[2];
+  return h < 24 && min < 60 ? h * 60 + min : null;
+};
 const kello = min => { const m = ((Math.round(min) % 1440) + 1440) % 1440; return `${Math.floor(m / 60)}.${String(m % 60).padStart(2, '0')}`; };
 function laskeMatka() {
   const el = $('#matka-tulos'); if (!el) return;
-  const maihin = minuutit($('#matka-maihin').value), aboard = minuutit($('#matka-aboard').value);
+  const syote = [$('#matka-maihin').value.trim(), $('#matka-aboard').value.trim()];
+  const maihin = minuutit(syote[0]), aboard = minuutit(syote[1]);
   if (maihin === null || aboard === null) {
-    el.innerHTML = '<p class="pieni-teksti" style="margin:8px 0 0">Kirjoita laivan päiväohjelmasta maihinnousun ja all aboard -ajan kellonajat, niin laskuri kertoo aikataulun.</p>';
+    const virhe = syote.some((s, i) => s && minuutit(s) === null);
+    el.innerHTML = `<p class="pieni-teksti" style="margin:8px 0 0">${virhe
+      ? 'Kirjoita aika muodossa 8.30 tai 17.30.'
+      : 'Kirjoita laivan päiväohjelmasta maihinnousun ja all aboard -ajan kellonajat, niin laskuri kertoo aikataulun.'}</p>`;
     return;
   }
   const perilla = maihin + 90;          // terminaali → metro → vaihto → juna (+ odotukset)
@@ -1049,8 +1061,10 @@ function piirraMatka() {
     ${MATKA.johdanto.map(p => `<p>${esc(p)}</p>`).join('')}
     <div class="kortti laskuri"><b>Aikalaskuri</b>
       <div class="laskuri-rivi">
-        <label>Maihin klo<input type="time" id="matka-maihin" value="${esc(S.get('matkaMaihin', ''))}"></label>
-        <label>All aboard klo<input type="time" id="matka-aboard" value="${esc(S.get('matkaAboard', ''))}"></label>
+        <label>Maihinnousu alkaa klo
+          <input type="text" inputmode="decimal" autocomplete="off" id="matka-maihin" placeholder="esim. 8.00" value="${esc(S.get('matkaMaihin', ''))}"></label>
+        <label>All aboard klo (laivalla viimeistään)
+          <input type="text" inputmode="decimal" autocomplete="off" id="matka-aboard" placeholder="esim. 17.30" value="${esc(S.get('matkaAboard', ''))}"></label>
       </div>
       <div id="matka-tulos"></div>
     </div>
