@@ -4,7 +4,7 @@
  * Muista nostaa VERSIO sekä täällä että sw.js:ssä, kun julkaiset muutoksia. */
 'use strict';
 (() => {
-const VERSIO = '2026-11-11.2';
+const VERSIO = '2026-11-11.3';
 
 const KARTTA = window.KARTTA;
 const KOHTEET = window.KOHTEET || [];
@@ -1076,6 +1076,10 @@ function piirraMatka() {
     <button class="nappi" data-matka-nollaa>Tyhjennä tehdyt-merkinnät</button>
     <h2>Jos jokin menee pieleen</h2>
     ${MATKA.pieleen.map(x => `<div class="kortti"><b>${esc(x.otsikko)}</b><p style="margin:4px 0 0">${esc(x.teksti)}</p></div>`).join('')}
+    ${MATKA.sovellukset?.length ? `<h2 id="sovellukset">Aikataulut ja sovellukset</h2>
+    <p class="pieni-teksti">Linkit vaativat netin.</p>
+    ${MATKA.sovellukset.map(x => `<div class="kortti"><b>${esc(x.otsikko)}</b><p style="margin:4px 0 0">${esc(x.teksti)}</p>${
+      (x.linkit || []).map(l => `<p style="margin:8px 0 0"><a class="nappi" href="${esc(l.osoite)}" target="_blank" rel="noopener">${esc(l.teksti)}</a></p>`).join('')}</div>`).join('')}` : ''}
     <h2 id="lauseet">Näytä italiaksi</h2>
     <p class="pieni-teksti">Napauta lausetta, niin se näkyy koko näytöllä isolla tekstillä – näyttäkää puhelin asemahenkilökunnalle tai taksikuskille.${
       AANET && MATKA.lauseet.some((l, i) => AANET.tiedostot['lause-' + i]) ? ' Kaiutinpainikkeesta lause luetaan ääneen italiaksi.' : ''}</p>

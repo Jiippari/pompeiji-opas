@@ -1,11 +1,15 @@
 // Pompeiji-opas: tarkka matkaohje Napolin risteilysatamasta Pompeijiin junalla ja takaisin.
-// Tiedot tarkistettu 11.11.2026 (metro Linja 1, Circumvesuviana Napoli–Sorrento, Campania Expressin tauko).
+// Tiedot tarkistettu 11.11.2026 (metro Linja 1, Circumvesuviana Napoli–Sorrento, Tap&Go-lähimaksu
+// eavsrl.it:stä, laiturit EAV:n lähtötaulusta, Campania Expressin tauko).
 // Vaihe: otsikko, teksti[], tunnista (mitä kylttiä etsiä), varo (yleisin virhe).
+// Sovellus: otsikko, teksti, linkit[] (teksti + osoite) – linkit vaativat netin.
+// Älä käytä aaltosulkeita kommenteissa: tools/tee_aanet.py etsii tiedostosta ensimmäisen aaltosulkeen.
 window.MATKA = {
   "otsikko": "Satamasta Pompeijiin junalla",
-  "tarkistettu": "Tiedot tarkistettu 11.11.2026. Junien ja metron aikataulut ja hinnat voivat muuttua – kysykää laivan vastaanotosta vielä matkapäivän aamuna, onko junissa lakkoa (sciopero).",
+  "tarkistettu": "Tiedot tarkistettu 11.11.2026, laiturit junayhtiön lähtötaulusta. Junien ja metron aikataulut, laiturit ja hinnat voivat muuttua – kysykää laivan vastaanotosta vielä matkapäivän aamuna, onko junissa lakkoa (sciopero).",
   "johdanto": [
     "Matka risteilyterminaalista Pompeijin portille kestää noin tunnin: ensin metrolla kolme pysäkkiä Napolin päärautatieasemalle, sitten paikallisjunalla noin 35 minuuttia. Kahdelta hengeltä menopaluu maksaa yhteensä noin 20 euroa.",
+    "Lippuja ei tarvitse ostaa etukäteen eikä sovellusta tarvita: sekä metrossa että junassa kumpikin maksaa omalla pankkikortillaan näyttämällä sen porttien kortinlukijaan.",
     "Ohje on kirjoitettu vaihe kerrallaan. Merkitkää vaihe tehdyksi napauttamalla sitä, niin näette, missä kohtaa olette. Sivun lopussa ovat valmiit italiankieliset lauseet, jotka voi näyttää isolla tekstillä asemahenkilökunnalle tai taksikuskille."
   ],
   "menomatka": [
@@ -13,6 +17,7 @@ window.MATKA = {
       "otsikko": "Laivalla ennen maihinnousua",
       "teksti": [
         "Ottakaa mukaan: passit (Pompeijin liput ovat nimellisiä), laivakortit, Pompeijin liput puhelimessa, pankkikortti molemmille (lähimaksu), vähän käteistä, ladattu puhelin ja varavirtalähde sekä vesipullo.",
+        "Kokeilkaa jo kotona, että kummankin kortin lähimaksu toimii, ja tarkistakaa pankin sovelluksesta, että kortin käyttö ulkomailla on sallittu.",
         "Kirjoittakaa paperille ylös laivan all aboard -aika ja satama-agentin puhelinnumero. Molemmat löytyvät laivan päiväohjelmasta. Täyttäkää myös tämän sivun aikalaskuri."
       ],
       "tunnista": "",
@@ -28,13 +33,13 @@ window.MATKA = {
       "varo": "Satamassa ja aukiolla tarjotaan kyytejä ja retkiä. Niistä voi kieltäytyä kohteliaasti: ”No, grazie”."
     },
     {
-      "otsikko": "Metron portit: maksu lähimaksulla",
+      "otsikko": "Metron portit: maksu kortilla",
       "teksti": [
-        "Helpoin tapa on lähimaksu. Kumpikin näyttää OMAN pankkikorttinsa tai puhelimensa portin kortinlukijaan, ja portti aukeaa. Yksi matka maksaa noin 1,50 €.",
+        "Helpoin tapa on lähimaksu. Kumpikin näyttää OMAN pankkikorttinsa portin kortinlukijaan, ja portti aukeaa. Yksi matka maksaa noin 1,50 €. Samalla tavalla maksetaan myöhemmin myös juna.",
         "Toinen tapa on ostaa paperilippu automaatista (valitse kieleksi englanti ja lipuksi Corsa singola eli kertalippu). Paperilippu leimataan porttiin."
       ],
       "tunnista": "Porttien kortinlukija, jossa on lähimaksun aaltomerkki.",
-      "varo": "Samalla kortilla ei voi maksaa kahdelle hengelle. Säilyttäkää kortti käden ulottuvilla: sama kortti näytetään myös ulos tullessa."
+      "varo": "Samalla kortilla ei voi maksaa kahdelle hengelle. Käyttäkää koko päivän samaa muovikorttia sekä sisään että ulos. Puhelimella maksaminen ja muovikortti ovat järjestelmälle eri kortteja, ja silloin matka voidaan veloittaa kahteen kertaan."
     },
     {
       "otsikko": "Oikea laituri: suunta Centro Direzionale",
@@ -49,7 +54,7 @@ window.MATKA = {
       "otsikko": "Metrolla kolme pysäkkiä: Garibaldi",
       "teksti": [
         "Pysäkit ovat Università, Duomo ja Garibaldi. Jääkää pois kolmannella pysäkillä, Garibaldilla. Matka kestää noin 6–8 minuuttia.",
-        "Garibaldi on Napolin päärautatieasema (Napoli Centrale). Ulos tullessa näyttäkää kortti uudelleen portin lukijaan."
+        "Garibaldi on Napolin päärautatieasema (Napoli Centrale). Ulos tullessa näyttäkää sama kortti uudelleen portin lukijaan."
       ],
       "tunnista": "Aseman nimikyltti GARIBALDI.",
       "varo": "Muistakaa näyttää kortti myös ulos tullessa, muuten matkasta voidaan veloittaa enimmäishinta."
@@ -64,23 +69,24 @@ window.MATKA = {
       "varo": "Älkää menkää valtionrautateiden (Trenitalia) laitureille tai lipunmyyntiin – Pompeijin juna on nimenomaan Circumvesuviana."
     },
     {
-      "otsikko": "Junaliput: osta samalla paluuliput",
+      "otsikko": "Junan portit: sama kortti kuin metrossa",
       "teksti": [
-        "Ostakaa liput Circumvesuvianan lipunmyynnistä (Biglietteria) tai lippuautomaatista. Ostakaa samalla kertaa myös paluuliput, yhteensä neljä kertalippua Pompei Scaviin. Lippu maksaa noin 3,30 €.",
-        "Lipunmyynnissä voi näyttää valmiin lauseen tämän sivun lopusta: ”Quattro biglietti per Pompei Scavi, per favore.” (Neljä lippua Pompei Scaviin, kiitos.)",
-        "Ennen laiturille menoa leimatkaa menolippu keltaisessa leimauslaitteessa tai porttien lukijassa. Paluuliput leimataan vasta paluumatkalla. Joissain porteissa voi maksaa myös lähimaksulla kuten metrossa."
+        "Circumvesuvianan porteilla maksetaan samalla tavalla kuin metrossa: kumpikin näyttää saman korttinsa portin kortinlukijaan, ja portti aukeaa. Lippua ei tarvitse ostaa eikä leimata. Matka Pompeijiin maksaa noin 3,30 €. Hinta lasketaan päivän matkoista jälkikäteen, joten veloitus näkyy tilillä vasta myöhemmin.",
+        "Jos portin lukija ei toimi, ostakaa liput lipunmyynnistä (Biglietteria) tai lippuautomaatista. Ostakaa silloin samalla myös paluuliput, yhteensä neljä kertalippua Pompei Scaviin. Lipunmyynnissä voi näyttää lauseen: ”Quattro biglietti per Pompei Scavi, per favore.” (Neljä lippua Pompei Scaviin, kiitos.)",
+        "Paperilippu leimataan ennen laiturille menoa keltaisessa leimauslaitteessa tai porttien lukijassa. Paluuliput leimataan vasta paluumatkalla."
       ],
-      "tunnista": "Keltainen leimauslaite tai porttien lipunlukija.",
-      "varo": "Leimaamattomasta lipusta voi saada junassa 50 euron sakon. Säilyttäkää paluuliput tallessa, esimerkiksi passin välissä."
+      "tunnista": "Porttien kortinlukija, jossa on lähimaksun aaltomerkki.",
+      "varo": "Pompei Scavissa sama kortti näytetään uudelleen ulos tullessa – muuten kortilta veloitetaan kallein hinta. Paperilipun kanssa: leimaamattomasta lipusta voi saada junassa 50 euron sakon."
     },
     {
       "otsikko": "Oikea juna: SORRENTO",
       "teksti": [
-        "Pompeijin juna on Napoli–Sorrento-linjan juna. Se lähtee yleensä laiturilta 3. Junan tai laiturin näytössä pitää lukea määränpäänä SORRENTO. Junia lähtee noin puolen tunnin välein.",
+        "Pompeijin juna on Napoli–Sorrento-linjan juna. Junan tai laiturin näytössä pitää lukea määränpäänä SORRENTO (usein SORRENTO VIA POMPEI). Junia lähtee noin puolen tunnin välein.",
+        "Laiturin numero vaihtelee, joten katsokaa se näytöstä sarakkeesta BIN. Tarkistushetkellä 11.11.2026 Sorrenton junat lähtivät laiturilta 1. Saman lähtötaulun näkee puhelimesta, linkki on tämän sivun kohdassa Aikataulut ja sovellukset.",
         "Jos olette epävarmoja, kysykää asemahenkilökunnalta tai muilta matkustajilta: ”Questo treno ferma a Pompei Scavi?” (Pysähtyykö tämä juna Pompei Scavissa?)"
       ],
-      "tunnista": "Näyttö: SORRENTO.",
-      "varo": "ÄLKÄÄ nousko junaan, jonka määränpää on Sarno, Poggiomarino tai Torre Annunziata – ne eivät pysähdy Pompei Scavissa."
+      "tunnista": "Näyttö: SORRENTO ja laiturin numero sarakkeessa BIN.",
+      "varo": "ÄLKÄÄ nousko junaan, jonka määränpää on Sarno, Poggiomarino tai Torre Annunziata (näytössä TORRE A.TA-OPLONTI) – ne eivät pysähdy Pompei Scavissa. Ne lähtevät yleensä eri laiturilta kuin Sorrenton juna."
     },
     {
       "otsikko": "Junassa noin 35 minuuttia",
@@ -95,7 +101,7 @@ window.MATKA = {
     {
       "otsikko": "Perillä: Porta Marina",
       "teksti": [
-        "Pompei Scavin asemalta on vain noin 50 metriä Pompeijin Porta Marina -sisäänkäynnille. Kävelkää asemalta ulos kadulle, niin näette sisäänkäynnin ja lipunmyynnin aivan vieressä.",
+        "Asemalta ulos tullessa näyttäkää sama kortti portin lukijaan. Pompei Scavin asemalta on vain noin 50 metriä Pompeijin Porta Marina -sisäänkäynnille. Kävelkää asemalta ulos kadulle, niin näette sisäänkäynnin ja lipunmyynnin aivan vieressä.",
         "Portilla näytetään liput puhelimesta ja tarvittaessa passi. Sisäänkäynnin luona on myös vessa. Nyt voi avata oppaan Kartta- tai Reitit-sivun."
       ],
       "tunnista": "Kyltti Scavi di Pompei – Porta Marina.",
@@ -114,16 +120,16 @@ window.MATKA = {
     {
       "otsikko": "Pompei Scavin asemalla",
       "teksti": [
-        "Leimatkaa paluuliput keltaisessa laitteessa tai porttien lukijassa. Jos paluulippuja ei ole, ne voi ostaa aseman lipunmyynnistä.",
-        "Napoliin menevän junan määränpää on NAPOLI (Porta Nolana). Tarkistakaa laituri näytöstä tai kysykää: ”Il treno per Napoli?”"
+        "Näyttäkää kumpikin sama kortti kuin aamulla aseman portin lukijaan. Jos käytätte paperilippuja, leimatkaa paluuliput keltaisessa laitteessa. Jos lukija ei toimi eikä paluulippuja ole, ostakaa liput aseman lipunmyynnistä.",
+        "Napoliin menevän junan määränpää on NAPOLI P.N. (Porta Nolana). Tarkistushetkellä 11.11.2026 Napolin junat lähtivät laiturilta 2. Tarkistakaa laituri näytöstä tai kysykää: ”Il treno per Napoli?”"
       ],
-      "tunnista": "Näyttö: NAPOLI.",
+      "tunnista": "Näyttö: NAPOLI P.N.",
       "varo": "Älkää nousko junaan, joka menee Sorrentoon – se vie väärään suuntaan."
     },
     {
       "otsikko": "Junalla Napoliin: jääkää pois Garibaldilla",
       "teksti": [
-        "Matka kestää noin 35 minuuttia. Jääkää pois asemalla NAPOLI GARIBALDI. Se on toiseksi viimeinen pysäkki.",
+        "Matka kestää noin 35 minuuttia. Jääkää pois asemalla NAPOLI GARIBALDI. Se on toiseksi viimeinen pysäkki. Asemalta ulos tullessa näyttäkää sama kortti portin lukijaan.",
         "Jos ohititte Garibaldin, jääkää pois päätepysäkillä Napoli Porta Nolana ja ottakaa sieltä taksi satamaan. Näyttäkää kuskille lause: ”Al porto, Stazione Marittima, per favore.”"
       ],
       "tunnista": "Asemakyltti NAPOLI GARIBALDI.",
@@ -150,7 +156,11 @@ window.MATKA = {
   "pieleen": [
     {
       "otsikko": "Juna ei kulje (lakko tai häiriö)",
-      "teksti": "Älkää jääkö odottamaan pitkäksi aikaa. Ottakaa taksi suoraan satamaan. Sopikaa hinta ennen lähtöä: Pompeijista satamaan noin 60–80 €. Kysykää taksia lipunmyynnistä, infopisteestä tai aseman edestä: ”Un taxi, per favore.”"
+      "teksti": "Lähtötaulusta näkee, onko juna myöhässä (sarake RIT. kertoo minuutit) vai peruttu (SOPPRESSO). Älkää jääkö odottamaan pitkäksi aikaa. Ottakaa taksi suoraan satamaan. Sopikaa hinta ennen lähtöä: Pompeijista satamaan noin 60–80 €. Kysykää taksia lipunmyynnistä, infopisteestä tai aseman edestä: ”Un taxi, per favore.”"
+    },
+    {
+      "otsikko": "Portti ei lue korttia",
+      "teksti": "Pitäkää kortti hetki paikallaan lukijan päällä ja kokeilkaa viereistä porttia. Lukijat ovat joskus epäkunnossa. Jos mikään ei toimi, ostakaa lippu lipunmyynnistä (Biglietteria) tai automaatista ja leimatkaa se. Henkilökunnalle voi näyttää lauseen: ”Il tornello non legge la mia carta.”"
     },
     {
       "otsikko": "Uhkaatte myöhästyä laivalta",
@@ -166,11 +176,33 @@ window.MATKA = {
     },
     {
       "otsikko": "Puhelimen akku loppuu",
-      "teksti": "Pitäkää paperilla mukana tärkeimmät: Municipio → (metro, suunta Centro Direzionale) → Garibaldi → (Circumvesuviana, juna Sorrentoon) → Pompei Scavi. Paluu toisin päin. Lisäksi laivan all aboard -aika ja satama-agentin numero."
+      "teksti": "Muovikortilla maksaminen toimii, vaikka puhelimesta loppuisi akku. Pitäkää paperilla mukana tärkeimmät: Municipio → (metro, suunta Centro Direzionale) → Garibaldi → (Circumvesuviana, juna Sorrentoon) → Pompei Scavi. Paluu toisin päin. Lisäksi laivan all aboard -aika ja satama-agentin numero."
     },
     {
       "otsikko": "Turistijuna Campania Express",
       "teksti": "Pompeijiin on ennen kulkenut myös kalliimpi turistijuna Campania Express. Se on tauolla 1.10.2026 alkaen toistaiseksi, joten siihen ei kannata luottaa. Tavallinen juna riittää hyvin."
+    }
+  ],
+  "sovellukset": [
+    {
+      "otsikko": "Junien lähtötaulu",
+      "teksti": "Junayhtiön oma lähtötaulu näyttää samat tiedot kuin aseman näytöt: määränpään, laiturin (BIN), lähtöajan ja myöhästymisen minuutteina (RIT.). Peruttu juna näkyy sanalla SOPPRESSO. Taulu päivittyy itsestään.",
+      "linkit": [
+        { "teksti": "Lähtevät junat: Napoli Garibaldi", "osoite": "https://orariotreni.eavsrl.it/teleindicatori/?stazione=3&tipo=P" },
+        { "teksti": "Lähtevät junat: Pompei Scavi", "osoite": "https://orariotreni.eavsrl.it/teleindicatori/?stazione=49&tipo=P" }
+      ]
+    },
+    {
+      "otsikko": "Google Maps",
+      "teksti": "Näyttää reitin ja aikataulut julkisilla kulkuneuvoilla. Kirjoittakaa hakuun Pompei Scavi – Villa dei Misteri, ei pelkkää Pompei: muuten Maps voi ehdottaa väärää asemaa Pompei Santuario.",
+      "linkit": []
+    },
+    {
+      "otsikko": "GoEav-sovellus (ei pakollinen)",
+      "teksti": "Junayhtiö EAV:n oma sovellus italiaksi ja englanniksi: liput, aikataulut sekä tiedotteet häiriöistä ja lakoista. Kortilla maksaessa sitä ei tarvita. Jos haluatte sen, asentakaa sovellus ja rekisteröitykää siihen jo kotona, sillä käyttäjien mukaan rekisteröinnin tekstiviesti ei aina tule perille. Sovelluksella ostettu lippu on voimassa 2 tuntia ostosta, joten ostakaa se vasta asemalla.",
+      "linkit": [
+        { "teksti": "GoEav junayhtiön sivuilla", "osoite": "https://www.eavsrl.it/app-goeav/" }
+      ]
     }
   ],
   "lauseet": [
@@ -178,6 +210,7 @@ window.MATKA = {
     { "it": "Dov'è la Circumvesuviana?", "fi": "Missä on Circumvesuviana-juna?" },
     { "it": "Quattro biglietti per Pompei Scavi, per favore.", "fi": "Neljä lippua Pompei Scaviin, kiitos." },
     { "it": "Due biglietti per Napoli, per favore.", "fi": "Kaksi lippua Napoliin, kiitos." },
+    { "it": "Il tornello non legge la mia carta.", "fi": "Portti ei lue korttiani." },
     { "it": "Questo treno ferma a Pompei Scavi?", "fi": "Pysähtyykö tämä juna Pompei Scavissa?" },
     { "it": "Il treno per Napoli?", "fi": "Mistä lähtee juna Napoliin?" },
     { "it": "Dove devo scendere?", "fi": "Missä minun pitää jäädä pois?" },

@@ -11,6 +11,7 @@ window.TIETOA = {
     "Lataa ääniopastus wifissä (ylempänä kohdassa Ääniopastus) ja kokeile jonkin kohteen Kuuntele-painiketta lentotilassa.",
     "Salli sijainnin käyttö, kun opas kysyy. Sijainti näkyy kartalla vasta Pompeijissa.",
     "Ostakaa liput etukäteen virallisesta myynnistä ja tallentakaa lippujen PDF-tiedostot puhelimeen. Ottakaa mukaan passi tai henkilökortti.",
+    "Kokeilkaa, että kummankin pankkikortin lähimaksu toimii, ja tarkistakaa pankin sovelluksesta, että kortin käyttö ulkomailla on sallittu. Kortilla maksetaan Napolin metro ja Pompeijin juna.",
     "Ottakaa mukaan varavirtalähde: kartta, sijainti ja ääneen luku kuluttavat akkua."
   ],
 
@@ -65,6 +66,7 @@ window.TIETOA = {
       "teksti": [
         "Napolin risteilysatamasta on tarkka vaihe vaiheelta -ohje tämän sivun alussa (Satamasta Pompeijiin junalla).",
         "Napolista ja Sorrentosta pääsee paikallisjunalla Circumvesuviana, linja Napoli–Sorrento. Jääkää pois asemalla Pompei Scavi – Villa dei Misteri, josta on muutama minuutti kävellen Porta Marinalle. Turistijuna Campania Express on tauolla 1.10.2026 alkaen.",
+        "Junaan ja Napolin metroon ei tarvitse ostaa lippua: kumpikin maksaa omalla pankkikortillaan näyttämällä sen porttien kortinlukijaan sekä sisään että ulos tullessa.",
         "Paikallisjunat ovat usein täysiä ja myöhässä, joten varatkaa aikaa. Pitäkää laukut ja puhelimet tiukasti mukana junassa ja asemilla."
       ]
     },
