@@ -1,14 +1,15 @@
 /* Pompeiji-opas — sovelluslogiikka.
  * Ei riippuvuuksia Leafletin lisäksi. Data tulee tiedostoista data/*.js
- * (window.KARTTA, window.KOHTEET, window.REITIT, window.TIETOA).
+ * (window.KARTTA, window.KOHTEET, window.REITIT, window.VERKKO, window.TIETOA).
  * Muista nostaa VERSIO sekä täällä että sw.js:ssä, kun julkaiset muutoksia. */
 'use strict';
 (() => {
-const VERSIO = '2026-11-11.3';
+const VERSIO = '2026-11-11.4';
 
 const KARTTA = window.KARTTA;
 const KOHTEET = window.KOHTEET || [];
 const REITIT = window.REITIT || [];
+const VERKKO = window.VERKKO || null;   // kävelyverkko oman reitin laskemiseen
 const TIETOA = window.TIETOA || { kaytanto: [], taustaa: [], ennen: [] };
 
 const KATEGORIAT = {
@@ -48,6 +49,10 @@ const S = {
 
 let nahty = new Set(S.get('nahty', []));
 let aktiivinenReitti = S.get('reitti', null);           // { id, i }
+// Oma reitti: käyttäjän valitsemat kohteet. Lasketaan puhelimessa (ks. osio "oma reitti").
+let omaAsetukset = { valitut: [], alku: 'porta-marina', loppu: 'porta-marina', portaat: false, ...S.get('omaReitti', {}) };
+let verkko = null;                                     // kävelyverkon naapurilistat, alustetaan tarvittaessa
+paivitaOmaReitti();
 if (aktiivinenReitti && !reittiById[aktiivinenReitti.id]) aktiivinenReitti = null;
 
 function etaisyys(a, b) {
@@ -364,7 +369,7 @@ const kuunteleNappi = id =>
 
 // ------------------------------------------------------------- näkymät ja reititys
 const OTSIKOT = { kartta: 'Pompeiji', kohteet: 'Kohteet', reitit: 'Reitit', tietoa: 'Tietoa' };
-const VALILEHTI = { kohde: 'kohteet', artikkeli: 'tietoa', matka: 'tietoa' };
+const VALILEHTI = { kohde: 'kohteet', artikkeli: 'tietoa', matka: 'tietoa', omareitti: 'reitit' };
 let nykyinen = null;
 
 function reititys() {
@@ -386,6 +391,7 @@ function nayta(nimi, arg) {
   if (nimi === 'tietoa') piirraTietoa();
   if (nimi === 'artikkeli') { otsikko = piirraArtikkeli(arg); }
   if (nimi === 'matka') { otsikko = piirraMatka(); }
+  if (nimi === 'omareitti') { otsikko = piirraOmaValinta(); }
   $('#otsikko').textContent = otsikko || 'Pompeiji';
   if (nimi in VALILEHTI) $('#nakyma-' + nimi).scrollTop = 0;
   nykyinen = nimi;
@@ -405,6 +411,7 @@ let tarkennaKohteeseen = null;     // { id } tai { paikka } — käsitellään k
 let palvelutNakyvissa = S.get('palvelut', true);
 
 let odotaKokoa = null;
+let sovitaReittiin = false;         // reitti aloitettiin ennen kuin kartta oli luotu
 function alustaKartta() {
   // Kartta luodaan vasta, kun elementillä on koko — muuten Leaflet laskee näkymän
   // nollakokoiseen ikkunaan ja zoomaa maksimiin.
@@ -499,7 +506,8 @@ function alustaKartta() {
   kartta.on('zoomend', paivitaZoomTyylit);
   kartta.on('click', karttaKlikki);
   paivitaZoomTyylit();
-  piirraReittiKartalle();
+  piirraReittiKartalle(sovitaReittiin);
+  sovitaReittiin = false;
   paivitaOmaSijainti();
   kasitteleTarkennus();
 }
@@ -804,6 +812,7 @@ function piirraKohde(id) {
       ${kuunteleNappi(k.id)}
       <button class="nappi" data-kartalle="${k.id}"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>Kartalla</button>
       <button class="nappi vihrea${nahty.has(k.id) ? ' paalla' : ''}" data-nahty="${k.id}">${nahty.has(k.id) ? '✓ Nähty' : 'Merkitse nähdyksi'}</button>
+      ${omaNappi(k.id)}
     </div>
     <p class="lyhyt">${esc(k.lyhyt)}</p>
     ${(k.teksti || []).map(p => `<p>${esc(p)}</p>`).join('')}
@@ -823,14 +832,10 @@ function piirraReitit() {
   if (!REITIT.length) { el.innerHTML = '<p class="tyhja">Reittejä ei ole vielä laskettu.</p>'; return; }
   el.innerHTML = matkaLinkki() + `<p class="pieni-teksti">Reitit kulkevat katuja pitkin. Ajat ovat suuntaa antavia: kävely rauhallisella vauhdilla
     epätasaisella kivetyksellä sekä tavallinen pysähtyminen kohteissa. Talvella viimeinen sisäänpääsy on jo klo 15.30.</p>` +
+  omaKortti() +
   REITIT.map(r => {
     const aktiivinen = aktiivinenReitti?.id === r.id;
-    const pysakit = r.pysakit.map((id, i) => {
-      const k = kohdeById[id], kat = KATEGORIAT[k.kategoria] || KATEGORIAT.julkinen;
-      const m = i > 0 ? r.osuudet[i - 1].m : null;
-      return `<a class="pysakki" href="#kohde/${id}"><span class="numero" style="--v:${kat.vari}">${i + 1}</span>
-        <span>${esc(k.nimi)}${nahty.has(id) ? ' <span style="color:var(--ok)">✓</span>' : ''}</span>${m ? `<small>${matka(m)}</small>` : ''}</a>`;
-    }).join('');
+    const pysakit = pysakkiLista(r);
     return `<div class="kortti reitti${aktiivinen ? ' aktiivinen-reitti' : ''}">
       <h2>${esc(r.nimi)}</h2>
       <div class="tiedot"><span><b>${kesto(r.kavely_min + r.kohde_min)}</b> yhteensä</span>
@@ -846,9 +851,18 @@ function piirraReitit() {
     </div>`;
   }).join('');
 }
+function pysakkiLista(r) {
+  return r.pysakit.map((id, i) => {
+    const k = kohdeById[id], kat = KATEGORIAT[k.kategoria] || KATEGORIAT.julkinen;
+    const m = i > 0 ? r.osuudet[i - 1].m : null;
+    return `<a class="pysakki" href="#kohde/${id}"><span class="numero" style="--v:${kat.vari}">${i + 1}</span>
+      <span>${esc(k.nimi)}${nahty.has(id) ? ' <span style="color:var(--ok)">✓</span>' : ''}</span>${m ? `<small>${matka(m)}</small>` : ''}</a>`;
+  }).join('');
+}
 function aloitaReitti(id) {
   aktiivinenReitti = { id, i: 0 };
   S.set('reitti', aktiivinenReitti);
+  if (!kartta) sovitaReittiin = true;
   piirraReittiKartalle(true);
   location.hash = '#kartta';
 }
@@ -903,6 +917,306 @@ $('#reitti-nyt').addEventListener('click', () => {
   kartta.panTo(kohdeById[id].sijainti); avaaKohdeArkki(id);
 });
 $('#reitti-lopeta').addEventListener('click', () => { lopetaReitti(); ilmoita('Reitti lopetettu'); });
+
+// ------------------------------------------------------------- oma reitti
+// Käyttäjä valitsee kohteet, opas järjestää ne lyhimmäksi kävelyreitiksi ja laskee ajan.
+// Kävelyverkko (data/verkko.js): solmut ovat risteyksiä, kaaret niiden välisiä katupätkiä
+// muodossa [alku, loppu, pituus dm, tyyppi, muoto]; tyyppi 0 = katu, 1 = portaat, 2 = huoltotie.
+// Kohde kiinnittyy lähimpään katupisteeseen: kohteet[id] = [solmu, etäisyys kadulle dm].
+// Funktiot ovat tavallisia funktiomäärittelyjä, koska oma reitti lasketaan jo käynnistyksessä.
+const SISAANKAYNNIT = [['porta-marina', 'Porta Marina (lähinnä asemaa)'], ['piazza-anfiteatro', 'Piazza Anfiteatro']];
+
+function alustaVerkko() {
+  if (verkko || !VERKKO) return verkko;
+  const vierus = Array.from({ length: VERKKO.solmuja }, () => []);
+  VERKKO.kaaret.forEach((e, i) => { vierus[e[0]].push(i); vierus[e[1]].push(i); });
+  verkko = { vierus, muodot: new Map() };
+  return verkko;
+}
+// Kaaren muoto kokonaislukupisteinä [x, y], sama koodaus kuin kartta.js:ssä.
+function kaarenMuoto(i) {
+  let m = verkko.muodot.get(i);
+  if (!m) {
+    const a = VERKKO.kaaret[i][4];
+    let x = 0, y = 0;
+    m = [];
+    for (let j = 0; j < a.length; j += 2) { x += a[j]; y += a[j + 1]; m.push([x, y]); }
+    verkko.muodot.set(i, m);
+  }
+  return m;
+}
+function solmunPiste(v) {
+  const i = verkko.vierus[v][0], m = kaarenMuoto(i);
+  return VERKKO.kaaret[i][0] === v ? m[0] : m[m.length - 1];
+}
+function kokonaisPiste(p) {
+  return [Math.round((p[1] - KARTTA.origo[1]) * KARTTA.q), Math.round((p[0] - KARTTA.origo[0]) * KARTTA.q)];
+}
+function koodaa(pts) {
+  const ulos = [];
+  let px = 0, py = 0;
+  for (const [x, y] of pts) { ulos.push(x - px, y - py); px = x; py = y; }
+  return ulos;
+}
+// Lyhimmät polut yhdestä solmusta kaikkiin (Dijkstra). Painot kuten tools/build_map.py:ssä:
+// portaat 1,6 ja huoltotiet 1,3 kertaa pituus; portaita vältettäessä portaat vielä 8-kertaisesti.
+function lyhimmat(alku, valtaPortaat) {
+  const kerroin = [1, valtaPortaat ? 1.6 * 8 : 1.6, 1.3];
+  const n = VERKKO.solmuja, hinta = new Float64Array(n).fill(Infinity), edel = new Int32Array(n).fill(-1);
+  const keko = [];
+  const lisaa = (h, v) => {
+    keko.push([h, v]);
+    for (let i = keko.length - 1; i > 0;) {
+      const p = (i - 1) >> 1;
+      if (keko[p][0] <= keko[i][0]) break;
+      [keko[p], keko[i]] = [keko[i], keko[p]]; i = p;
+    }
+  };
+  const ota = () => {
+    const ylin = keko[0], viim = keko.pop();
+    if (keko.length) {
+      keko[0] = viim;
+      for (let i = 0; ;) {
+        const l = 2 * i + 1, r = l + 1;
+        let m = i;
+        if (l < keko.length && keko[l][0] < keko[m][0]) m = l;
+        if (r < keko.length && keko[r][0] < keko[m][0]) m = r;
+        if (m === i) break;
+        [keko[m], keko[i]] = [keko[i], keko[m]]; i = m;
+      }
+    }
+    return ylin;
+  };
+  hinta[alku] = 0; lisaa(0, alku);
+  while (keko.length) {
+    const [h, u] = ota();
+    if (h > hinta[u]) continue;
+    for (const i of verkko.vierus[u]) {
+      const e = VERKKO.kaaret[i], v = e[0] === u ? e[1] : e[0], nh = h + e[2] * kerroin[e[3]];
+      if (nh < hinta[v]) { hinta[v] = nh; edel[v] = i; lisaa(nh, v); }
+    }
+  }
+  return { hinta, edel };
+}
+// Kohteiden järjestys: C on hintamatriisi, jossa 0 = alku, 1..n = kohteet ja n+1 = loppu.
+// Enintään 12 kohdetta käydään läpi tarkasti (Held–Karp), muuten lähin naapuri + 2-opt.
+function jarjesta(n, C) {
+  if (n <= 1) return n ? [1] : [];
+  if (n <= 12) {
+    const T = 1 << n, dp = new Float64Array(T * n).fill(Infinity), ed = new Int8Array(T * n).fill(-1);
+    for (let j = 0; j < n; j++) dp[(1 << j) * n + j] = C[0][j + 1];
+    for (let mask = 1; mask < T; mask++) {
+      for (let j = 0; j < n; j++) {
+        const h = dp[mask * n + j];
+        if (!(mask & (1 << j)) || h === Infinity) continue;
+        for (let k = 0; k < n; k++) {
+          if (mask & (1 << k)) continue;
+          const i2 = (mask | (1 << k)) * n + k, nh = h + C[j + 1][k + 1];
+          if (nh < dp[i2]) { dp[i2] = nh; ed[i2] = j; }
+        }
+      }
+    }
+    let paras = Infinity, j = -1, mask = T - 1;
+    for (let k = 0; k < n; k++) {
+      const h = dp[mask * n + k] + C[k + 1][n + 1];
+      if (h < paras) { paras = h; j = k; }
+    }
+    const jarj = [];
+    while (j >= 0) { jarj.push(j + 1); const p = ed[mask * n + j]; mask &= ~(1 << j); j = p; }
+    return jarj.reverse();
+  }
+  const jaljella = new Set(Array.from({ length: n }, (_, i) => i + 1)), polku = [0];
+  while (jaljella.size) {
+    const u = polku[polku.length - 1];
+    let paras = null;
+    for (const v of jaljella) if (paras === null || C[u][v] < C[u][paras]) paras = v;
+    polku.push(paras); jaljella.delete(paras);
+  }
+  polku.push(n + 1);
+  for (let parani = true; parani;) {
+    parani = false;
+    for (let i = 1; i < polku.length - 2; i++) {
+      for (let k = i + 1; k < polku.length - 1; k++) {
+        const a = polku[i - 1], b = polku[i], c = polku[k], d = polku[k + 1];
+        if (C[a][c] + C[b][d] < C[a][b] + C[c][d] - 1e-6) {
+          polku.splice(i, k - i + 1, ...polku.slice(i, k + 1).reverse());
+          parani = true;
+        }
+      }
+    }
+  }
+  return polku.slice(1, -1);
+}
+// Kävelyosuus kohteesta a kohteeseen b: muoto kartalle ja pituus metreinä.
+function osuus(a, b, haut) {
+  const K = VERKKO.kohteet, va = K[a][0], vb = K[b][0], { edel } = haut.get(va);
+  const ketju = [];
+  for (let v = vb; v !== va;) {
+    const i = edel[v];
+    if (i < 0) break;
+    ketju.push(i);
+    const e = VERKKO.kaaret[i];
+    v = e[0] === v ? e[1] : e[0];
+  }
+  ketju.reverse();
+  const pts = [kokonaisPiste(kohdeById[a].sijainti)];
+  let m = (K[a][1] + K[b][1]) / 10, v = va;
+  if (!ketju.length) pts.push(solmunPiste(va));
+  for (const i of ketju) {
+    const e = VERKKO.kaaret[i];
+    let muoto = kaarenMuoto(i);
+    if (e[0] !== v) muoto = muoto.slice().reverse();
+    pts.push(...(pts.length > 1 ? muoto.slice(1) : muoto));
+    m += e[2] / 10;
+    v = e[0] === v ? e[1] : e[0];
+  }
+  pts.push(kokonaisPiste(kohdeById[b].sijainti));
+  return { g: koodaa(pts), m };
+}
+// Palauttaa reitin samassa muodossa kuin data/reitit.js:n reitit, tai null jos kohteita ei ole.
+function laskeOmaReitti(a) {
+  if (!alustaVerkko()) return null;
+  const K = VERKKO.kohteet;
+  const alku = K[a.alku] ? a.alku : 'porta-marina', loppu = K[a.loppu] ? a.loppu : alku;
+  const valitut = [...new Set(a.valitut)].filter(id => kohdeById[id] && K[id] && id !== alku && id !== loppu);
+  if (!valitut.length) return null;
+  const pisteet = [alku, ...valitut, loppu], haut = new Map();
+  for (const id of pisteet) { const v = K[id][0]; if (!haut.has(v)) haut.set(v, lyhimmat(v, a.portaat)); }
+  const C = pisteet.map(p => pisteet.map(q => haut.get(K[p][0]).hinta[K[q][0]] + K[p][1] + K[q][1]));
+  const pysakit = [alku, ...jarjesta(valitut.length, C).map(i => pisteet[i]), loppu];
+  const osuudet = [];
+  let metrit = 0;
+  for (let i = 0; i + 1 < pysakit.length; i++) {
+    const o = osuus(pysakit[i], pysakit[i + 1], haut);
+    osuudet.push({ g: o.g, m: Math.round(o.m) });
+    metrit += o.m;
+  }
+  return {
+    id: 'oma', nimi: 'Oma reitti', pysakit, osuudet, metrit: Math.round(metrit),
+    kavely_min: metrit / 1000 / 2.8 * 60,   // rauhallinen tahti, kuten valmiissa reiteissä
+    kohde_min: [...new Set(pysakit)].reduce((s, id) => s + (kohdeById[id].kesto || 5), 0),
+  };
+}
+function paivitaOmaReitti() {
+  const r = omaAsetukset.valitut.length ? laskeOmaReitti(omaAsetukset) : null;
+  if (r) reittiById.oma = r; else delete reittiById.oma;
+  if (aktiivinenReitti?.id === 'oma') {
+    if (r) aktiivinenReitti.i = Math.min(aktiivinenReitti.i, r.pysakit.length - 1);
+    else aktiivinenReitti = null;
+    S.set('reitti', aktiivinenReitti);
+  }
+  return r;
+}
+function muutaOmaa(muutos) {
+  Object.assign(omaAsetukset, muutos);
+  S.set('omaReitti', omaAsetukset);
+  paivitaOmaReitti();
+  piirraReittiKartalle();
+}
+function asetaOmaan(id, mukana) {
+  const v = new Set(omaAsetukset.valitut);
+  if (mukana) v.add(id); else v.delete(id);
+  muutaOmaa({ valitut: [...v] });
+}
+// Kesto 5 minuutin tarkkuudella (valmiiden reittien kesto() pyöristää varttiin).
+function viisi(min) { return Math.max(5, Math.round(min / 5) * 5); }
+function kestoTarkka(min) {
+  const m = viisi(min);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+}
+// Yhteisaika pyöristettyjen osien summana, jotta näytetty kävely + kohteet = yhteensä.
+function omaYhteensa(r) { return viisi(r.kavely_min) + viisi(r.kohde_min); }
+// Aika Pompeijissa matkaohjeen aikalaskurin mukaan (minuutteina), tai null jos laskuri on tyhjä.
+function aikaaPompeijissa() {
+  const maihin = minuutit(S.get('matkaMaihin', '')), aboard = minuutit(S.get('matkaAboard', ''));
+  return maihin === null || aboard === null ? null : (aboard - MATKA_VARA) - (maihin + MATKA_PERILLE);
+}
+function omaNappi(id) {
+  if (!VERKKO?.kohteet[id] || SISAANKAYNNIT.some(([s]) => s === id)) return '';
+  const mukana = omaAsetukset.valitut.includes(id);
+  return `<button class="nappi${mukana ? ' oma-paalla' : ''}" data-oma-vaihda="${id}">${mukana ? '✓ Omassa reitissä' : '+ Omaan reittiin'}</button>`;
+}
+function omaKortti() {
+  if (!VERKKO) return '';
+  const r = reittiById.oma;
+  if (!r) {
+    return `<div class="kortti reitti oma-reitti"><h2>Oma reitti</h2>
+      <p>Valitse itse kohteet, niin opas järjestää ne lyhimmäksi kävelyreitiksi ja laskee, kauanko kierros kestää.</p>
+      <div class="nappirivi"><a class="nappi ensisijainen" href="#omareitti">Valitse kohteet</a></div></div>`;
+  }
+  const aktiivinen = aktiivinenReitti?.id === 'oma', yht = omaYhteensa(r), aika = aikaaPompeijissa();
+  let aikaHtml;
+  if (aika === null) aikaHtml = `<p class="pieni-teksti">Täyttäkää <a href="#matka">matkaohjeen aikalaskuri</a>, niin opas kertoo, mahtuuko reitti aikaanne.</p>`;
+  else if (yht <= aika) aikaHtml = `<p class="mahtuu">Mahtuu aikaanne: aikalaskurin mukaan Pompeijissa on aikaa ${kestoTarkka(aika)}, ${
+    aika - yht >= 5 ? `joten väljyyttä jää noin ${kestoTarkka(aika - yht)}` : 'mutta väljyyttä ei juuri jää'}.</p>`;
+  else aikaHtml = `<p class="varoitus">Reitti kestää noin ${kestoTarkka(yht - aika)} pidempään kuin aikalaskurin mukainen aika Pompeijissa (${kestoTarkka(Math.max(0, aika))}). Poistakaa kohteita tai valitkaa lyhyempiä.</p>`;
+  const huvilat = r.pysakit.some(id => id === 'misteri' || id === 'diomede')
+    ? '<p class="varoitus">Mysteerien ja Diomedeen huviloille tarvitaan Pompeii+-lippu tai 8 euron lisämaksu (vain kortilla Porta Ercolanolla).</p>' : '';
+  const alku = kohdeById[r.pysakit[0]].nimi, loppu = kohdeById[r.pysakit[r.pysakit.length - 1]].nimi;
+  return `<div class="kortti reitti oma-reitti${aktiivinen ? ' aktiivinen-reitti' : ''}">
+    <h2>Oma reitti</h2>
+    <div class="tiedot"><span><b>${kestoTarkka(yht)}</b> yhteensä</span>
+      <span>${(r.metrit / 1000).toFixed(1).replace('.', ',')} km</span><span>${r.pysakit.length - 2} kohdetta</span></div>
+    <p>Kävelyä noin ${kestoTarkka(r.kavely_min)} ja kohteissa noin ${kestoTarkka(r.kohde_min)}. ${alku === loppu
+      ? `Alkaa ja päättyy: ${esc(alku)}.` : `Alkaa: ${esc(alku)}, päättyy: ${esc(loppu)}.`}${omaAsetukset.portaat ? ' Portaita vältetään.' : ''}</p>
+    ${aikaHtml}${huvilat}
+    <div class="nappirivi">
+      ${aktiivinen
+        ? `<a class="nappi ensisijainen" href="#kartta">Jatka reittiä (kohde ${aktiivinenReitti.i + 1})</a><button class="nappi" data-reitti-lopeta>Lopeta</button>`
+        : `<button class="nappi ensisijainen" data-reitti-aloita="oma">Aloita reitti</button>`}
+      <a class="nappi" href="#omareitti">Muokkaa</a>
+    </div>
+    <details><summary>Kohteet järjestyksessä</summary>${pysakkiLista(r)}</details>
+  </div>`;
+}
+function piirraOmaValinta() {
+  const el = $('#nakyma-omareitti');
+  if (!VERKKO) { el.innerHTML = '<p class="tyhja">Kävelyverkkoa ei löytynyt.</p>'; return 'Oma reitti'; }
+  const a = omaAsetukset, valitut = new Set(a.valitut);
+  const valinta = (nimi, arvo) => `<select id="oma-${nimi}" data-oma="${nimi}">${SISAANKAYNNIT.map(([id, t]) =>
+    `<option value="${id}"${id === arvo ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+  const rivi = k => {
+    const kat = KATEGORIAT[k.kategoria] || KATEGORIAT.julkinen, t = TILAT[k.tila];
+    const huom = k.tila === 'suljettu' || k.tila === 'ulkoa' ? ` · ${esc(t.nimi)}` : '';
+    return `<label class="rivi valintarivi"><input type="checkbox" data-oma-kohde="${k.id}"${valitut.has(k.id) ? ' checked' : ''}>
+      <span class="pallo" style="--v:${kat.vari}"></span>
+      <span class="runko"><span class="nimi">${esc(k.nimi)}</span><span class="lisa">kohteessa noin ${k.kesto || 5} min${huom}</span></span></label>`;
+  };
+  const valittavat = KOHTEET.filter(k => VERKKO.kohteet[k.id] && !SISAANKAYNNIT.some(([id]) => id === k.id));
+  let lista = '';
+  for (const alue of [...ALUEJARJESTYS, null]) {
+    const osa = valittavat.filter(k => alue === null ? !ALUEJARJESTYS.includes(k.alue) : k.alue === alue);
+    if (osa.length) lista += `<div class="ryhma">${esc(alue || 'Muut')}</div>` + osa.map(rivi).join('');
+  }
+  el.innerHTML = `<article class="omavalinta">
+    <p>Valitkaa kohteet, jotka haluatte nähdä. Opas järjestää ne lyhimmäksi kävelyreitiksi ja laskee, kauanko kierros kestää: kävely rauhallisella vauhdilla ja tavallinen pysähtyminen kohteissa.</p>
+    <div class="kortti">
+      <div class="asetus"><label for="oma-alku">Kierros alkaa</label>${valinta('alku', a.alku)}</div>
+      <div class="asetus"><label for="oma-loppu">Kierros päättyy</label>${valinta('loppu', a.loppu)}</div>
+      <label class="kytkin"><input type="checkbox" data-oma="portaat"${a.portaat ? ' checked' : ''}> Vältä portaita</label>
+    </div>
+    ${lista}
+    <p style="margin-top:16px"><button class="nappi" data-oma-tyhjenna>Tyhjennä valinnat</button></p>
+  </article>
+  <div id="omapalkki" class="omapalkki"></div>`;
+  paivitaOmaPalkki();
+  return 'Oma reitti';
+}
+function paivitaOmaPalkki() {
+  const el = $('#omapalkki');
+  if (!el) return;
+  const r = reittiById.oma;
+  if (!r) {
+    el.classList.remove('yli');
+    el.innerHTML = `<span class="runko"><b>Ei vielä kohteita</b><small>Valitkaa kohteet listasta</small></span><a class="nappi" href="#reitit">Takaisin</a>`;
+    return;
+  }
+  const yht = omaYhteensa(r), aika = aikaaPompeijissa();
+  el.classList.toggle('yli', aika !== null && yht > aika);
+  el.innerHTML = `<span class="runko"><b>${kestoTarkka(yht)} · ${r.pysakit.length - 2} kohdetta</b>
+    <small>kävely ${kestoTarkka(r.kavely_min)} + kohteet ${kestoTarkka(r.kohde_min)}${aika !== null ? ` · aikaa ${kestoTarkka(Math.max(0, aika))}` : ''}</small></span>
+    <a class="nappi ensisijainen" href="#reitit">Valmis</a>`;
+}
 
 // ------------------------------------------------------------- tietoa ja artikkelit
 let asennusKehote = null;
@@ -1013,6 +1327,8 @@ const minuutit = s => {
   const h = +m[1], min = m[2].length === 1 ? +m[2] * 10 : +m[2];
   return h < 24 && min < 60 ? h * 60 + min : null;
 };
+// Aikalaskurin oletukset: satamasta portille 90 min ja paluulle 3 h väljyyttä ennen all aboardia.
+const MATKA_PERILLE = 90, MATKA_VARA = 180;
 const kello = min => { const m = ((Math.round(min) % 1440) + 1440) % 1440; return `${Math.floor(m / 60)}.${String(m % 60).padStart(2, '0')}`; };
 function laskeMatka() {
   const el = $('#matka-tulos'); if (!el) return;
@@ -1025,8 +1341,8 @@ function laskeMatka() {
       : 'Kirjoita laivan päiväohjelmasta maihinnousun ja all aboard -ajan kellonajat, niin laskuri kertoo aikataulun.'}</p>`;
     return;
   }
-  const perilla = maihin + 90;          // terminaali → metro → vaihto → juna (+ odotukset)
-  const viimeistaan = aboard - 180;     // 3 h väljyys: matka n. 1,5 h + varaa myöhästymisille
+  const perilla = maihin + MATKA_PERILLE;   // terminaali → metro → vaihto → juna (+ odotukset)
+  const viimeistaan = aboard - MATKA_VARA;  // 3 h väljyys: matka n. 1,5 h + varaa myöhästymisille
   const aika = viimeistaan - perilla;
   const huom = [];
   if (aika < 120) huom.push('Aikaa jää alle kaksi tuntia. Juna ei silloin oikein kannata – harkitkaa laivan omaa retkeä tai taksia.');
@@ -1038,7 +1354,8 @@ function laskeMatka() {
       <tr class="tarkea"><td>Lähtekää Pompeijista asemalle viimeistään</td><td>klo ${kello(viimeistaan)}</td></tr>
       <tr><td>Aikaa Pompeijissa</td><td>${aika > 0 ? kesto(aika) : '–'}</td></tr>
     </table>
-    <p class="pieni-teksti" style="margin:6px 0 0">Asettakaa puhelimeen herätys lähtöajalle klo ${kello(viimeistaan)}.</p>
+    <p class="pieni-teksti" style="margin:6px 0 0">Asettakaa puhelimeen herätys lähtöajalle klo ${kello(viimeistaan)}.${
+      aika > 0 && VERKKO ? ' Reitit-sivulla voitte koota <a href="#omareitti">oman reitin</a>, joka mahtuu tähän aikaan.' : ''}</p>
     ${huom.map(h => `<p class="varoitus" style="margin:8px 0 0">${esc(h)}</p>`).join('')}`;
 }
 function piirraMatka() {
@@ -1123,7 +1440,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 // ------------------------------------------------------------- yhteiset klikkaukset
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-kuuntele],[data-kartalle],[data-nahty],[data-reitti-aloita],[data-reitti-lopeta],[data-paikka],[data-asenna],[data-kokeile-aani],[data-nollaa-nahty],[data-lataa-aanet],[data-vaihe],[data-lause],[data-matka-nollaa]');
+  const t = e.target.closest('[data-kuuntele],[data-kartalle],[data-nahty],[data-reitti-aloita],[data-reitti-lopeta],[data-paikka],[data-asenna],[data-kokeile-aani],[data-nollaa-nahty],[data-lataa-aanet],[data-vaihe],[data-lause],[data-matka-nollaa],[data-oma-vaihda],[data-oma-tyhjenna]');
   if (!t) return;
   const d = t.dataset;
   if (d.kuuntele) kuuntele(d.kuuntele);
@@ -1152,6 +1469,15 @@ document.addEventListener('click', e => {
   }
   else if (d.lause) naytaLause(+d.lause);
   else if ('matkaNollaa' in d) { S.set('matkaTehty', []); piirraMatka(); }
+  else if (d.omaVaihda) {
+    const mukana = !omaAsetukset.valitut.includes(d.omaVaihda);
+    asetaOmaan(d.omaVaihda, mukana);
+    t.outerHTML = omaNappi(d.omaVaihda);
+    const r = reittiById.oma;
+    ilmoita(mukana ? `Lisätty omaan reittiin: ${r.pysakit.length - 2} kohdetta, ${kestoTarkka(omaYhteensa(r))}`
+      : 'Poistettu omasta reitistä');
+  }
+  else if ('omaTyhjenna' in d) { muutaOmaa({ valitut: [] }); piirraOmaValinta(); }
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'matka-maihin' || e.target.id === 'matka-aboard') {
@@ -1160,6 +1486,9 @@ document.addEventListener('input', e => {
   }
 });
 document.addEventListener('change', e => {
+  const o = e.target.dataset;
+  if (o.omaKohde) { asetaOmaan(o.omaKohde, e.target.checked); paivitaOmaPalkki(); }
+  if (o.oma) { muutaOmaa({ [o.oma]: o.oma === 'portaat' ? e.target.checked : e.target.value }); paivitaOmaPalkki(); }
   if (e.target.id === 'aani') S.set('aani', e.target.value);
   if (e.target.id === 'nopeus') { S.set('nopeus', +e.target.value); Aani.el.playbackRate = +e.target.value; }
   if (e.target.id === 'aaniopas') S.set('aaniopas', e.target.checked);

@@ -292,6 +292,30 @@ p { margin: 0 0 12px; }
 .pysakki small { color: var(--himmea); margin-left: auto; white-space: nowrap; }
 .aktiivinen-reitti { border: 2px solid var(--pun); }
 
+/* ---------- oma reitti ---------- */
+.oma-reitti { border: 2px dashed var(--okra); }
+.oma-reitti.aktiivinen-reitti { border: 2px solid var(--pun); }
+.mahtuu { background: #eef6ec; border: 1px solid #b9d6b5; border-radius: 10px; padding: 10px 12px; font-size: 15px; }
+.nappi.oma-paalla { background: var(--okra); border-color: var(--okra); color: #fff; }
+.valintarivi { cursor: pointer; padding: 10px 12px; }
+.valintarivi input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--pun); }
+.valintarivi:has(input:checked) { border-color: var(--pun); background: #fbf1e6; }
+.omavalinta .asetus select { min-height: 48px; border-radius: 10px; border: 1.5px solid var(--raja); background: #fff; }
+.omapalkki {
+  /* Vierityssäiliön 120 px:n alareunan täyte pienentää sticky-aluetta, siksi negatiivinen arvo */
+  position: sticky; bottom: -112px; z-index: 5; margin-top: 12px;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--teksti); color: #fff; border-radius: 16px; padding: 10px 10px 10px 16px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.3);
+}
+.omapalkki.yli { background: var(--kiinni); }
+.omapalkki .runko { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.omapalkki small { font-size: 13.5px; opacity: .85; }
+.omapalkki .nappi { flex: none; }
+.omapalkki .nappi:not(.ensisijainen) { background: transparent; color: #fff; border-color: #fff; }
+.omapalkki .nappi.ensisijainen { background: #fff; color: var(--pun); border-color: #fff; }
+body.puhuu .omapalkki { bottom: -118px; }   /* täyte 190 px, puhepalkin yläpuolelle */
+
 /* ---------- tietoa ---------- */
 .offline { display: flex; gap: 10px; align-items: center; }
 .offline.ok { border-color: #b9d6b5; background: #eef6ec; }
